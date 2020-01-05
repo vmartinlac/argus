@@ -50,7 +50,7 @@ int main(int num_args, char** args)
     });
 
     const cv::Mat1f disparity_cpu = disparity_cpu_future.get();
-    const cv::Mat1f disparity_gpu = disparity_gpu_future.get();;
+    const cv::Mat1f disparity_gpu = disparity_gpu_future.get();
 
     cv::imshow("left", left);
     cv::imshow("right", right);
