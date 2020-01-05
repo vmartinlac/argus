@@ -14,5 +14,6 @@ void StereoMatcherGPU::compute(
     const cv::Mat1b& right,
     cv::Mat1f& disparity)
 {
+    disparity.create(left.size());
 }
 

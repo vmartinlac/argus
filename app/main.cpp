@@ -9,10 +9,46 @@
 #include "StereoMatcherCPU.h"
 #include "StereoMatcherGPU.h"
 
-int main(int num_args, char** args)
+using DisparityAndDuration = std::tuple<cv::Mat1f, std::chrono::milliseconds>;
+
+template<typename Matcher>
+class MatcherWrapper
 {
+protected:
+
     using Clock = std::chrono::high_resolution_clock;
     using TimePoint = Clock::time_point;
+
+public:
+
+    MatcherWrapper(const cv::Mat1b& left, const cv::Mat1b& right) :
+        myLeft(left),
+        myRight(right)
+    {
+    }
+
+    DisparityAndDuration operator()()
+    {
+        Matcher matcher;
+        cv::Mat1f disparity;
+
+        TimePoint t0 = Clock::now();
+
+        matcher.compute(myLeft, myRight, disparity);
+
+        TimePoint t1 = Clock::now();
+
+        return std::make_tuple(disparity, std::chrono::duration_cast<std::chrono::milliseconds>(t1-t0));
+    }
+
+protected:
+
+    const cv::Mat1b& myLeft;
+    const cv::Mat1b& myRight;
+};
+
+int main(int num_args, char** args)
+{
 
     if(num_args != 3)
     {
@@ -29,33 +65,19 @@ int main(int num_args, char** args)
         exit(1);
     }
 
-    std::future<cv::Mat1f> disparity_cpu_future = std::async([&left, &right] ()
-    {
-        StereoMatcherCPU matcher;
-        cv::Mat1f disparity;
+    std::future<DisparityAndDuration> future_cpu = std::async(MatcherWrapper<StereoMatcherCPU>(left, right));
+    std::future<DisparityAndDuration> future_gpu = std::async(MatcherWrapper<StereoMatcherGPU>(left, right));
 
-        matcher.compute(left, right, disparity);
+    const DisparityAndDuration result_cpu = future_cpu.get();
+    const DisparityAndDuration result_gpu = future_gpu.get();
 
-        return disparity;
-    });
-
-    std::future<cv::Mat1f> disparity_gpu_future = std::async([&left, &right] ()
-    {
-        StereoMatcherGPU matcher;
-        cv::Mat1f disparity;
-
-        matcher.compute(left, right, disparity);
-
-        return disparity;
-    });
-
-    const cv::Mat1f disparity_cpu = disparity_cpu_future.get();
-    const cv::Mat1f disparity_gpu = disparity_gpu_future.get();
+    std::cout << "Duration time for CPU stereo matching (ms): " << std::get<1>(result_cpu).count() << std::endl;
+    std::cout << "Duration time for GPU stereo matching (ms): " << std::get<1>(result_gpu).count() << std::endl;
 
     cv::imshow("left", left);
     cv::imshow("right", right);
-    //cv::imshow("disparity (CPU)", disparity_cpu);
-    //cv::imshow("disparity (GPU)", disparity_gpu);
+    cv::imshow("disparity (CPU)", std::get<0>(result_cpu));
+    cv::imshow("disparity (GPU)", std::get<0>(result_gpu));
     cv::waitKey(0);
 
     return 0;
