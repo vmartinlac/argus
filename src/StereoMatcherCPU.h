@@ -24,6 +24,15 @@ protected:
 
 protected:
 
+    template<typename DataCostFunction, typename DiscontinuityCostFunction>
+    void loopyBeliefPropagation(
+        int num_labels,
+        DataCostFunction data_cost,
+        DiscontinuityCostFunction discontinuity_cost,
+        cv::Mat1i& result);
+
+protected:
+
     // parameters.
     std::array<cv::Point,4> myNeighbors;
     int myNumGlobalIterations;
@@ -31,7 +40,7 @@ protected:
     int myNumDisparities;
 
     std::array<const cv::Mat1b*,2> myImages;
-    std::array<cv::Mat1b,2> myOcclusion;
+    std::array<cv::Mat1i,2> myOcclusion;
     std::array<cv::Mat1i,2> myDisparity;
 };
 
