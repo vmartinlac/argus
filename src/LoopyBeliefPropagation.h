@@ -68,11 +68,13 @@ namespace LoopyBeliefPropagation
                                 {
                                     float value = data_cost(this_point, n) + discontinuity_cost(n,m);
 
-                                    for(cv::Point delta : neighbors)
+                                    for(int l=0; l<neighbors.size(); l++)
                                     {
-                                        if(ROI.contains(this_point+delta) && this_point+delta != that_point)
+                                        const cv::Point third_point = this_point + neighbors[l];
+
+                                        if(ROI.contains(third_point) && third_point != that_point)
                                         {
-                                            value += messages.at<float>(cv::Vec4i()); // TODO
+                                            value += messages.at<float>(cv::Vec4i(third_point.y, third_point.x, (l+2)%4, n));
                                         }
                                     }
 
@@ -98,18 +100,30 @@ namespace LoopyBeliefPropagation
             }
         };
 
-        auto update_belief_pred = [&messages, num_labels, &result] (tbb::blocked_range2d<int> range)
+        auto update_result_pred = [&data_cost, &ROI, &neighbors, &messages, num_labels, &result] (tbb::blocked_range2d<int> range)
         {
             for(int i=range.rows().begin(); i<range.rows().end(); i++)
             {
                 for(int j=range.cols().begin(); j<range.cols().end(); j++)
                 {
+                    const cv::Point this_point(j,i);
+
                     bool first = true;
                     float minimal_value = 0.0f;
 
                     for(int k=0; k<num_labels; k++)
                     {
-                        float value = 0.0f; // TODO: compute this value.
+                        float value = data_cost(this_point, k);
+
+                        for(int l=0; l<neighbors.size(); l++)
+                        {
+                            const cv::Point that_point = this_point + neighbors[l];
+
+                            if(ROI.contains(that_point))
+                            {
+                                value += messages.at<float>(cv::Vec4i(that_point.y, that_point.x, (l+2)%4, k));
+                            }
+                        }
 
                         if(first || value < minimal_value)
                         {
@@ -133,7 +147,7 @@ namespace LoopyBeliefPropagation
             cv::swap(messages, new_messages);
         }
 
-        tbb::parallel_for(whole_range, update_belief_pred);
+        tbb::parallel_for(whole_range, update_result_pred);
     }
 }
 
