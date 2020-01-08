@@ -86,12 +86,40 @@ void StereoMatcherCPU::computeOcclusion(int image)
 {
     auto data_cost = [this] (const cv::Point& pt, int label) -> float
     {
+        float ret = 0.0f;
+
+        /*
+        if(label)
+        {
+            ret = myEtaO;
+        }
+        else
+        {
+            // TODO
+        }
+
+        // TODO
+        */
+
         return 0.0f;
     };
 
     auto discontinuity_cost = [this] (int label0, int label1) -> float
     {
-        return 0.0;
+        float ret = 0.0f;
+
+        /*
+        if(label0 != label1)
+        {
+            ret = static_cast<float>(myBetaO);
+        }
+        else
+        {
+            ret = 0.0f;
+        }
+        */
+
+        return ret;
     };
 
     LoopyBeliefPropagation::execute(
