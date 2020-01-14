@@ -24,13 +24,12 @@ protected:
 
 protected:
 
-    // parameters.
     int myNumGlobalIterations;
     int myNumBeliefPropagationIterations;
-    int myNumDisparities;
 
-    std::array<const cv::Mat1b*,2> myImages;
-    std::array<cv::Mat1i,2> myOcclusion;
-    std::array<cv::Mat1i,2> myDisparity;
+    std::vector<int> myDisparityTable[2];
+    const cv::Mat1b* myImages[2];
+    cv::Mat1i myOcclusion[2];
+    cv::Mat1i myDisparity[2];
 };
 

@@ -23,7 +23,14 @@ void StereoMatcherCPU::compute(
         exit(1);
     }
 
-    myNumDisparities = left.cols*2/10;
+    const int num_disparities = left.cols*2/10;
+    myDisparityTable[0].resize(num_disparities);
+    myDisparityTable[1].resize(num_disparities);
+    for(int i=0; i<num_disparities; i++)
+    {
+        myDisparityTable[0][i] = -i;
+        myDisparityTable[1][i] = i;
+    }
 
     myImages[0] = &left;
     myImages[1] = &right;
@@ -51,7 +58,7 @@ void StereoMatcherCPU::compute(
     }
 
     disparity.create(left.size());
-    std::transform(myDisparity[0].begin(), myDisparity[0].end(), disparity.begin(), [] (int x) { return static_cast<float>(x); } );
+    std::transform(myDisparity[0].begin(), myDisparity[0].end(), disparity.begin(), [this] (int x) { return static_cast<float>(myDisparityTable[0][x]); } );
 
     myImages[0] = nullptr;
     myImages[1] = nullptr;
@@ -74,8 +81,8 @@ void StereoMatcherCPU::computeDisparity(int image)
     };
 
     LoopyBeliefPropagation::execute(
-        myNumDisparities,
-        myImages[0]->size(),
+        myDisparityTable[image].size(),
+        myImages[image]->size(),
         data_cost,
         discontinuity_cost,
         myNumBeliefPropagationIterations,
@@ -84,6 +91,21 @@ void StereoMatcherCPU::computeDisparity(int image)
 
 void StereoMatcherCPU::computeOcclusion(int image)
 {
+    const int other_image = (image + 1) % 2;
+
+    cv::Mat1b W(myImages[image]->size());
+    std::fill(W.begin(), W.end(), 1);
+
+    for(auto it=myDisparity[image].begin(); it!=myDisparity[image].end(); it++)
+    {
+        const cv::Point other_pt = it.pos() + cv::Point(myDisparityTable[other_image][*it], 0);
+
+        if( 0 <= other_pt.x && other_pt.x < W.cols && 0 <= other_pt.y && other_pt.y < W.rows )
+        {
+            W(other_pt) = 0;
+        }
+    }
+
     auto data_cost = [this] (const cv::Point& pt, int label) -> float
     {
         float ret = 0.0f;
