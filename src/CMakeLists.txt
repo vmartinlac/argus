@@ -5,7 +5,6 @@ add_library(
     StereoMatcher.h
     StereoMatcher.cpp
     LoopyBeliefPropagation.h
-    LoopyBeliefPropagation.cpp
     StereoMatcherCPU.h
     StereoMatcherCPU.cpp
     StereoMatcherGPU.h

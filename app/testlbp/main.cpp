@@ -28,7 +28,7 @@ int main(int num_args, char** args)
         return ret;
     };
 
-    auto discontinuity_cost = [] (int label0, int label1) -> float
+    auto discontinuity_cost = [] (const cv::Point& pt0, int label0, const cv::Point& pt1, int label1) -> float
     {
         return std::fabs(label1 == label0);
         if( (label0 == 0 && label1 == 2) || (label0 == 2 && label1 == 0) )

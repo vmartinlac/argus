@@ -62,7 +62,7 @@ namespace LoopyBeliefPropagation
 
                                 for(int n=0; n<num_labels; n++)
                                 {
-                                    float value = data_cost(this_point, n) + discontinuity_cost(n,m);
+                                    float value = data_cost(this_point, n) + discontinuity_cost(this_point, n, that_point, m);
 
                                     for(int l=0; l<neighbors.size(); l++)
                                     {
