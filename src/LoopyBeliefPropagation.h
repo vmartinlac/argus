@@ -18,14 +18,10 @@ namespace LoopyBeliefPropagation
     {
         std::array<cv::Point,4> neighbors;
 
-        neighbors[0].x = 1;
-        neighbors[0].y = 0;
-        neighbors[1].x = 0;
-        neighbors[1].y = 1;
-        neighbors[2].x = -1;
-        neighbors[2].y = 0;
-        neighbors[3].x = 0;
-        neighbors[3].y = -1;
+        neighbors[0] = cv::Point(1,0);
+        neighbors[1] = cv::Point(0,1);
+        neighbors[2] = cv::Point(-1,0);
+        neighbors[3] = cv::Point(0,-1);
 
         cv::Mat1f messages;
         cv::Mat1f new_messages;

@@ -19,17 +19,27 @@ public:
 
 protected:
 
-    void computeDisparity(int i);
-    void computeOcclusion(int i);
+    struct Level
+    {
+        std::array<cv::Mat1b,2> thumbnails;
+        std::array<cv::Mat1i,2> occlusion;
+        std::array<cv::Mat1i,2> disparity;
+    };
 
 protected:
 
-    int myNumGlobalIterations;
-    int myNumBeliefPropagationIterations;
+    void updateDisparity(Level& l, int i);
+    void updateOcclusion(Level& l, int i);
 
+protected:
+
+    double myScaleFactor;
+    int myMinLevelWidth;
+    int myNumFixedPointIterations;
+    int myNumBeliefPropagationIterations;
+    int myNumDisparities;
+    /*
     std::vector<int> myDisparityTable[2];
-    const cv::Mat1b* myImages[2];
-    cv::Mat1i myOcclusion[2];
-    cv::Mat1i myDisparity[2];
+    */
 };
 

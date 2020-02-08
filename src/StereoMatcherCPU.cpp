@@ -1,11 +1,26 @@
 #include <iostream>
+#include <opencv2/imgproc.hpp>
 #include "StereoMatcherCPU.h"
 #include "LoopyBeliefPropagation.h"
 
 StereoMatcherCPU::StereoMatcherCPU()
 {
-    myNumGlobalIterations = 3;
+    myScaleFactor = 0.7;
+    myMinLevelWidth = 80;
+    myNumFixedPointIterations = 3;
     myNumBeliefPropagationIterations = 30;
+    myNumDisparities = 20;
+
+    /*
+    const int num_disparities = 20;
+    myDisparities[0].resize(num_disparities);
+    myDisparities[1].resize(num_disparities);
+    for(int i=0; i<num_disparities; i++)
+    {
+        myDisparityTable[0][i] = -static_cast<float>(i);
+        myDisparityTable[1][i] = static_cast<float>(i);
+    }
+    */
 }
 
 StereoMatcherCPU::~StereoMatcherCPU()
@@ -17,59 +32,77 @@ void StereoMatcherCPU::compute(
     const cv::Mat1b& right,
     cv::Mat1f& disparity)
 {
-    if(left.size() != right.size())
+    if( left.size() != right.size() )
     {
         std::cerr << "Size mismatch" << std::endl;
         exit(1);
     }
 
-    const int num_disparities = left.cols*2/10;
-    myDisparityTable[0].resize(num_disparities);
-    myDisparityTable[1].resize(num_disparities);
-    for(int i=0; i<num_disparities; i++)
+    std::cout << "Building image pyramids..." << std::endl;
+
+    std::vector<Level> levels;
+
+    levels.emplace_back();
+    levels.back().thumbnails[0] = left;
+    levels.back().thumbnails[1] = right;
+
+    while( myScaleFactor * static_cast<double>(levels.back().thumbnails[0].cols) >= static_cast<double>(myMinLevelWidth) )
     {
-        myDisparityTable[0][i] = -i;
-        myDisparityTable[1][i] = i;
+        cv::Mat1b new_left;
+        cv::Mat1b new_right;
+
+        cv::resize(levels.back().thumbnails[0], new_left, cv::Size(), myScaleFactor, myScaleFactor, cv::INTER_AREA);
+        cv::resize(levels.back().thumbnails[1], new_right, cv::Size(), myScaleFactor, myScaleFactor, cv::INTER_AREA);
+
+        levels.emplace_back();
+        levels.back().thumbnails[0] = new_left;
+        levels.back().thumbnails[1] = new_right;
     }
 
-    myImages[0] = &left;
-    myImages[1] = &right;
+    const size_t num_levels = levels.size();
 
-    myOcclusion[0].create(left.size());
-    myOcclusion[1].create(left.size());
-    myDisparity[0].create(left.size());
-    myDisparity[1].create(left.size());
-
-    for(int i=0; i<myNumGlobalIterations; i++)
+    for(size_t i=0; i<num_levels; i++)
     {
-        if(i == 0)
+        Level& level = levels[num_levels-1-i];
+
+        if(i > 0)
         {
-            std::fill(myOcclusion[0].begin(), myOcclusion[0].end(), 0);
-            std::fill(myOcclusion[1].begin(), myOcclusion[1].end(), 0);
+            Level& old_level = levels[num_levels-i];
+
+            cv::resize(old_level.disparity[0], level.disparity[0], level.thumbnails[0].size(), 0.0, 0.0, cv::INTER_NEAREST);
+            cv::resize(old_level.occlusion[0], level.occlusion[0], level.thumbnails[0].size(), 0.0, 0.0, cv::INTER_NEAREST);
+            cv::resize(old_level.disparity[1], level.disparity[1], level.thumbnails[1].size(), 0.0, 0.0, cv::INTER_NEAREST);
+            cv::resize(old_level.occlusion[1], level.occlusion[1], level.thumbnails[1].size(), 0.0, 0.0, cv::INTER_NEAREST);
         }
         else
         {
-            computeOcclusion(0);
-            computeOcclusion(1);
+            level.disparity[0].create(level.thumbnails[0].size());
+            level.occlusion[0].create(level.thumbnails[0].size());
+            level.disparity[1].create(level.thumbnails[1].size());
+            level.occlusion[1].create(level.thumbnails[1].size());
+
+            std::fill(level.disparity[0].begin(), level.disparity[0].end(), 0);
+            std::fill(level.occlusion[0].begin(), level.occlusion[0].end(), 0);
+            std::fill(level.disparity[1].begin(), level.disparity[1].end(), 0);
+            std::fill(level.occlusion[1].begin(), level.occlusion[1].end(), 0);
         }
 
-        computeDisparity(0);
-        computeDisparity(1);
+        for(size_t j=0; j<myNumFixedPointIterations; j++)
+        {
+            updateDisparity(level, 0);
+            updateDisparity(level, 1);
+            updateOcclusion(level, 0);
+            updateOcclusion(level, 1);
+        }
     }
 
     disparity.create(left.size());
-    std::transform(myDisparity[0].begin(), myDisparity[0].end(), disparity.begin(), [this] (int x) { return static_cast<float>(myDisparityTable[0][x]); } );
-
-    myImages[0] = nullptr;
-    myImages[1] = nullptr;
-    myOcclusion[0] = cv::Mat1i();
-    myOcclusion[1] = cv::Mat1i();
-    myDisparity[0] = cv::Mat1i();
-    myDisparity[1] = cv::Mat1i();
+    std::transform(levels.front().disparity[0].begin(), levels.front().disparity[0].end(), disparity.begin(), [this] (int x) { return static_cast<float>(x); } );
 }
 
-void StereoMatcherCPU::computeDisparity(int image)
+void StereoMatcherCPU::updateDisparity(Level& level, int image)
 {
+    /*
     auto data_cost = [this] (const cv::Point& pt, int label) -> float
     {
         return 0.0f;
@@ -87,10 +120,12 @@ void StereoMatcherCPU::computeDisparity(int image)
         discontinuity_cost,
         myNumBeliefPropagationIterations,
         myDisparity[image]);
+    */
 }
 
-void StereoMatcherCPU::computeOcclusion(int image)
+void StereoMatcherCPU::updateOcclusion(Level& level, int image)
 {
+    /*
     const int other_image = (image + 1) % 2;
 
     cv::Mat1b W(myImages[image]->size());
@@ -109,6 +144,7 @@ void StereoMatcherCPU::computeOcclusion(int image)
     auto data_cost = [this] (const cv::Point& pt, int label) -> float
     {
         float ret = 0.0f;
+*/
 
         /*
         if(label)
@@ -122,6 +158,7 @@ void StereoMatcherCPU::computeOcclusion(int image)
 
         // TODO
         */
+        /*
 
         return 0.0f;
     };
@@ -130,6 +167,7 @@ void StereoMatcherCPU::computeOcclusion(int image)
     {
         float ret = 0.0f;
 
+        */
         /*
         if(label0 != label1)
         {
@@ -141,6 +179,7 @@ void StereoMatcherCPU::computeOcclusion(int image)
         }
         */
 
+        /*
         return ret;
     };
 
@@ -151,5 +190,6 @@ void StereoMatcherCPU::computeOcclusion(int image)
         discontinuity_cost,
         myNumBeliefPropagationIterations,
         myOcclusion[image]);
+    */
 }
 
