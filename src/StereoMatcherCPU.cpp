@@ -6,11 +6,12 @@
 
 StereoMatcherCPU::StereoMatcherCPU()
 {
+    myEnableMultiscale = false;
     myScaleFactor = 0.7;
     myMinLevelWidth = 30;
     myNumFixedPointIterations = 3;
-    myNumBeliefPropagationIterations = 40;
-    myNumDisparities = 20;
+    myNumBeliefPropagationIterations = 150;
+    myNumDisparities = 10;
     myDirections[0] = -1;
     myDirections[1] = 1;
 
@@ -58,7 +59,7 @@ void StereoMatcherCPU::compute(
     levels.back().thumbnails[0] = left;
     levels.back().thumbnails[1] = right;
 
-    while( myScaleFactor * static_cast<double>(levels.back().thumbnails[0].cols) >= static_cast<double>(myMinLevelWidth) )
+    while( myEnableMultiscale && myScaleFactor * static_cast<double>(levels.back().thumbnails[0].cols) >= static_cast<double>(myMinLevelWidth) )
     {
         Level new_level;
 
@@ -116,7 +117,6 @@ void StereoMatcherCPU::compute(
 
             std::cout << "        Updating left disparity..." << std::endl;
             updateDisparity(level, 0);
-            std::cout << std::all_of(level.disparity[0].begin(), level.disparity[0].end(), [] (int i) { return (i==0); } ) << std::endl;
             cv::imwrite("DisparityLeft.png", level.disparity[0] * 65535.0 / double(myNumDisparities-1));
 
             std::cout << "        Updating right disparity..." << std::endl;
@@ -134,7 +134,11 @@ void StereoMatcherCPU::compute(
     }
 
     disparity.create(left.size());
-    std::transform(levels.front().disparity[0].begin(), levels.front().disparity[0].end(), disparity.begin(), [] (int x) { return static_cast<float>(x); } );
+    std::transform(
+        levels.front().disparity[0].begin(),
+        levels.front().disparity[0].end(),
+        disparity.begin(),
+        [this] (int x) { return myDirections[0]*static_cast<float>(x); } );
 }
 
 void StereoMatcherCPU::updateDisparity(Level& level, int image)
@@ -143,14 +147,19 @@ void StereoMatcherCPU::updateDisparity(Level& level, int image)
 
     auto data_cost = [level, image, other_image, this] (const cv::Point& pt, int label) -> float
     {
-        const cv::Point other_pt = pt + cv::Point(myDirections[image]*level.disparity[image](pt), 0);
+        const cv::Point other_pt = pt + cv::Point(myDirections[image]*label, 0);
 
-        double ret = myBetaW * level.occlusion[other_image](other_pt);
+        float ret = 0.0f;
+
+        if( (0 <= other_pt.x && other_pt.x < level.thumbnails[other_image].cols) == false || level.occlusion[other_image](other_pt) )
+        {
+            ret += myBetaW;
+        }
 
         if(level.occlusion[image](pt) == 0)
         {
-            const double value = level.thumbnails[image](pt);
-            double other_value = 0.0f;
+            const float value = level.thumbnails[image](pt);
+            float other_value = 0.0f;
 
             if(0 <= other_pt.x && other_pt.x < level.thumbnails[other_image].cols)
             {
@@ -160,7 +169,7 @@ void StereoMatcherCPU::updateDisparity(Level& level, int image)
             ret += robustNormPixels( value - other_value );
         }
 
-        return static_cast<float>(ret);
+        return ret;
     };
 
     auto discontinuity_cost = [level, this] (const cv::Point& pt0, int label0, const cv::Point& pt1, int label1) -> float
@@ -169,11 +178,13 @@ void StereoMatcherCPU::updateDisparity(Level& level, int image)
 
         if( level.occlusion[0](pt0) == level.occlusion[0](pt1) )
         {
-            ret += robustNormDisparity( level.disparity[0](pt0) - level.disparity[0](pt1) );
+            ret += robustNormDisparity( label1 - label0 );
         }
 
         return ret;
     };
+
+    std::cout << "            LoopyBeliefPropagation starts" << std::endl;
 
     LoopyBeliefPropagation::execute(
         myNumDisparities,
@@ -182,6 +193,8 @@ void StereoMatcherCPU::updateDisparity(Level& level, int image)
         discontinuity_cost,
         myNumBeliefPropagationIterations,
         level.disparity[image]);
+
+    std::cout << "            LoopyBeliefPropagation ends" << std::endl;
 }
 
 void StereoMatcherCPU::updateOcclusion(Level& level, int image)
@@ -240,7 +253,16 @@ void StereoMatcherCPU::updateOcclusion(Level& level, int image)
         return static_cast<double>(ret);
     };
 
-    LoopyBeliefPropagation::execute( 2, level.thumbnails[image].size(), data_cost, discontinuity_cost, myNumBeliefPropagationIterations, level.occlusion[image]);
+    std::cout << "            LoopyBeliefPropagation starts" << std::endl;
+
+    LoopyBeliefPropagation::execute(
+        2,
+        level.thumbnails[image].size(),
+        data_cost, discontinuity_cost,
+        myNumBeliefPropagationIterations,
+        level.occlusion[image]);
+
+    std::cout << "            LoopyBeliefPropagation ends" << std::endl;
 }
 
 float StereoMatcherCPU::robustNormDisparity(float x)

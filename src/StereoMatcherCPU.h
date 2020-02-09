@@ -36,6 +36,7 @@ protected:
 
 protected:
 
+    bool myEnableMultiscale;
     double myScaleFactor;
     int myMinLevelWidth;
     int myNumFixedPointIterations;

@@ -139,6 +139,7 @@ namespace LoopyBeliefPropagation
 
         for(int i=0; i<num_iterations; i++)
         {
+            std::cout << "LoopyBeliefPropagation iteration " << i << "/" << num_iterations << std::endl;
             tbb::parallel_for(whole_range, update_messages_pred);
             cv::swap(messages, new_messages);
         }

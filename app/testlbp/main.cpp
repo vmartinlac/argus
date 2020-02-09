@@ -6,66 +6,51 @@
 int main(int num_args, char** args)
 {
     const int N = 128;
-    const int M = 2;
 
-    auto data_cost = [M,N] (const cv::Point& pt, int label) -> float
+    const int M = 10;
+
+    cv::Mat1f image0(N, 1);
+    cv::Mat1f image1(N, 1);
+    for(int i=0; i<N; i++)
     {
-        if(pt.x == 0 && pt.y == 0) return std::fabs(label-0);
-        else return 0.0;
+        image0(i,0) = float(i)*0.1f;
+        image1(i,0) = float(i+5)*0.1f;
+    }
 
-        float ret = 0.0f;
-        const int margin = N/4;
-
-        if(pt.x < margin)
+    auto data_cost = [N, &image0, &image1] (const cv::Point& pt, int label) -> float
+    {
+        const float val = image0(pt);
+        const cv::Point other_point = pt + cv::Point(0, label - M/2);
+        float other_val = 0.0f;
+        if( 0 <= other_point.y && other_point.y < image0.rows )
         {
-            ret = std::fabs(label-0);
-        }
-        else if(pt.x > N-margin)
-        {
-            ret = std::fabs(label-(M-1));
+            other_val = image1(other_point);
         }
 
-        return ret;
+        const float delta = other_val - val;
+
+        return delta*delta;
     };
 
     auto discontinuity_cost = [] (const cv::Point& pt0, int label0, const cv::Point& pt1, int label1) -> float
     {
-        return std::fabs(label1 == label0);
-        if( (label0 == 0 && label1 == 2) || (label0 == 2 && label1 == 0) )
-        {
-            return 1.0f;
-        }
-        else
-        {
-            return 0.0;
-        }
+        return std::fabs(label1 - label0);
     };
 
-    cv::Mat1i image(N, N);
-    std::fill(image.begin(), image.end(), 0);
+    cv::Mat1i labels(N, 1);
 
     LoopyBeliefPropagation::execute(
         M,
-        image.size(),
+        image0.size(),
         data_cost,
         discontinuity_cost,
-        100,
-        image);
-    /*
-    template<typename DataCostFunction, typename DiscontinuityCostFunction>
-    void execute(
-        int num_labels,
-        const cv::Size& image_size,
-        DataCostFunction data_cost,
-        DiscontinuityCostFunction discontinuity_cost,
-        int num_iterations,
-        cv::Mat1i& result)
-    */
+        30,
+        labels);
 
-    image *= 65535.0/double(M-1);
-
-    cv::imshow("output", image);
-    cv::waitKey(0);
+    for(int i=0; i<N; i++)
+    {
+        std::cout << labels(i,0)-M/2 << std::endl;
+    }
 
     return 0;
 }
