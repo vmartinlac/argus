@@ -11,7 +11,7 @@ StereoMatcherCPU::StereoMatcherCPU()
     myMinLevelWidth = 30;
     myNumFixedPointIterations = 3;
     myNumBeliefPropagationIterations = 150;
-    myNumDisparities = 10;
+    myNumDisparities = 8;
     myDirections[0] = -1;
     myDirections[1] = 1;
 
@@ -116,7 +116,8 @@ void StereoMatcherCPU::compute(
             updateDisparity(level, 0);
             cv::imwrite("DisparityLeft.png", level.disparity[0] * 65535.0 / double(myNumDisparities-1));
 
-            std::cout << level.disparity[0] << std::endl;
+            //std::cout << level.disparity[0] << std::endl;
+            //exit(0);
 
             std::cout << "        Updating right disparity..." << std::endl;
             updateDisparity(level, 1);
@@ -144,6 +145,12 @@ void StereoMatcherCPU::compute(
 
 void StereoMatcherCPU::updateDisparity(Level& level, int image)
 {
+    /*
+    cv::imshow("left", level.thumbnails[0]);
+    cv::imshow("right", level.thumbnails[1]);
+    cv::waitKey(0);
+    */
+
     const int other_image = (image + 1) % 2;
 
     auto data_cost = [level, image, other_image, this] (const cv::Point& pt, int label) -> float
@@ -168,6 +175,10 @@ void StereoMatcherCPU::updateDisparity(Level& level, int image)
             }
 
             ret += robustNormPixels( value - other_value );
+            /*
+            const float delta = value - other_value;
+            ret = std::max(0.0f, delta*delta - 10.0f*10.0f);
+            */
         }
 
         return ret;
