@@ -1,4 +1,5 @@
 #include <iostream>
+#include <tbb/task_scheduler_init.h>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/highgui.hpp>
 #include "StereoMatcherCPU.h"
@@ -16,7 +17,7 @@ void test0()
     const int radius = N/4;
     const int delta = 2;
     cv::circle(left_image, cv::Point(N/2, N/2), radius, 255, -1);
-    cv::circle(right_image, cv::Point(N/2+delta, N/2), radius, 255, -1);
+    cv::circle(right_image, cv::Point(N/2-delta, N/2), radius, 255, -1);
 
     /*
     cv::imshow("left_image", left_image);
@@ -48,7 +49,10 @@ void test1()
 
 int main(int num_args, char** args)
 {
+    tbb::task_scheduler_init init(tbb::task_scheduler_init::automatic);
+
     test0();
+
     return 0;
 }
 
