@@ -1,6 +1,30 @@
+#include <iostream>
 #include <opencv2/imgproc.hpp>
+#include <opencv2/highgui.hpp>
 #include "LBPSM.h"
 #include "LBP.h"
+
+LBPSM::Config::Config()
+{
+    enable_multiscale = true;
+    level0_to_level1 = 0.65;
+    min_level_width = 50;
+
+    num_fixed_point_iterations = 4;
+    num_belief_propagation_iterations = 500;
+    num_disparities = 15;
+
+    directions[0] = -1;
+    directions[1] = 1;
+
+    lambda = 0.5; // TODO try other values or use the method from the article.
+    tau = 2.0;
+    eta0 = 2.5;
+    sigmad = 4.0;
+    ed = 1.0e-2;
+    betaw = 4.0;
+    beta0 = 1.4;
+}
 
 void LBPSM::build_pyramid(
     const cv::Mat1b& left,
@@ -28,25 +52,32 @@ void LBPSM::build_pyramid(
     }
 }
 
-void LBPSM::prepare_level(Level& level)
+void LBPSM::init_disparity_and_occlusion(std::vector<Level>& pyramid, size_t level_index)
 {
-    level.disparity[0].create(level.image[0].size());
-    level.occlusion[0].create(level.image[0].size());
-    level.disparity[1].create(level.image[1].size());
-    level.occlusion[1].create(level.image[1].size());
+    if( level_index+1 < pyramid.size() )
+    {
+        Level& level = pyramid[level_index];
+        Level& old_level = pyramid[level_index+1];
 
-    std::fill(level.disparity[0].begin(), level.disparity[0].end(), 0);
-    std::fill(level.occlusion[0].begin(), level.occlusion[0].end(), 0);
-    std::fill(level.disparity[1].begin(), level.disparity[1].end(), 0);
-    std::fill(level.occlusion[1].begin(), level.occlusion[1].end(), 0);
-}
+        cv::resize(old_level.disparity[0], level.disparity[0], level.image[0].size(), 0.0, 0.0, cv::INTER_NEAREST);
+        cv::resize(old_level.occlusion[0], level.occlusion[0], level.image[0].size(), 0.0, 0.0, cv::INTER_NEAREST);
+        cv::resize(old_level.disparity[1], level.disparity[1], level.image[1].size(), 0.0, 0.0, cv::INTER_NEAREST);
+        cv::resize(old_level.occlusion[1], level.occlusion[1], level.image[1].size(), 0.0, 0.0, cv::INTER_NEAREST);
+    }
+    else
+    {
+        Level& level = pyramid[level_index];
 
-void LBPSM::prepare_level_from(Level& level, const Level& old_level)
-{
-    cv::resize(old_level.disparity[0], level.disparity[0], level.image[0].size(), 0.0, 0.0, cv::INTER_NEAREST);
-    cv::resize(old_level.occlusion[0], level.occlusion[0], level.image[0].size(), 0.0, 0.0, cv::INTER_NEAREST);
-    cv::resize(old_level.disparity[1], level.disparity[1], level.image[1].size(), 0.0, 0.0, cv::INTER_NEAREST);
-    cv::resize(old_level.occlusion[1], level.occlusion[1], level.image[1].size(), 0.0, 0.0, cv::INTER_NEAREST);
+        level.disparity[0].create(level.image[0].size());
+        level.occlusion[0].create(level.image[0].size());
+        level.disparity[1].create(level.image[1].size());
+        level.occlusion[1].create(level.image[1].size());
+
+        std::fill(level.disparity[0].begin(), level.disparity[0].end(), 0);
+        std::fill(level.occlusion[0].begin(), level.occlusion[0].end(), 0);
+        std::fill(level.disparity[1].begin(), level.disparity[1].end(), 0);
+        std::fill(level.occlusion[1].begin(), level.occlusion[1].end(), 0);
+    }
 }
 
 void LBPSM::run(const cv::Mat1b& left, const cv::Mat1b& right, const Config& config, cv::Mat1w& disparity)
@@ -54,68 +85,7 @@ void LBPSM::run(const cv::Mat1b& left, const cv::Mat1b& right, const Config& con
     std::vector<Level> pyramid;
     build_pyramid(left, right, config, pyramid);
 
-    const size_t num_levels = pyramid.size();
-
-    std::cout << "Number of levels: " << num_levels << std::endl;
-
-    for(size_t i=0; i<num_levels; i++)
-    {
-        std::cout << "Processing level " << i << "..." << std::endl;
-        Level& level = pyramid[num_levels-1-i];
-
-        if(i > 0)
-        {
-            const Level& old_level = pyramid[num_levels-i];
-            prepare_level_from(level, old_level);
-        }
-        else
-        {
-            prepare_level(level);
-        }
-
-        for(size_t j=0; j<config.num_fixed_point_iterations; j++)
-        {
-            std::cout << "    Fixed point iteration " << j << "..." << std::endl;
-
-            std::cout << "        Updating left disparity..." << std::endl;
-            update_disparity(level, config, 0);
-            //cv::imwrite("DisparityLeft.png", level.disparity[0] * 65535.0 / double(myNumDisparities-1));
-
-            std::cout << "        Updating right disparity..." << std::endl;
-            update_disparity(level, config, 1);
-            //cv::imwrite("DisparityRight.png", level.disparity[1] * 65535.0 / double(myNumDisparities-1));
-
-            std::cout << "        Updating left occlusion..." << std::endl;
-            update_occlusion(level, config, 0);
-            //cv::imwrite("OcclusionLeft.png", level.occlusion[0] * 65535.0 / 1.0);
-
-            std::cout << "        Updating right occlusion..." << std::endl;
-            update_occlusion(level, config, 1);
-            //cv::imwrite("OcclusionRight.png", level.occlusion[1] * 65535.0 / 1.0);
-
-            ////////
-            /*
-            cv::imshow("left_image", level.image[0]);
-            //cv::imshow("left_occlusion", level.occlusion[0]*255);
-            //cv::imshow("left_disparity", level.disparity[0]);
-            cv::imshow("right_image", level.image[1]);
-            cv::imshow("right_occlusion", cv::Mat1f(level.occlusion[1]*255));
-            cv::imshow("right_disparity", cv::Mat1f(level.disparity[1]*255.0/double(myNumDisparities-1)));
-            int mini = level.disparity[0](0,0);
-            int maxi = level.disparity[0](0,0);
-            for(int i=0; i<level.disparity[1].rows; i++)
-            {
-                for(int j=0; j<level.disparity[1].cols; j++)
-                {
-                    maxi = std::max<int>(maxi, level.disparity[0](i,j));
-                    mini = std::min<int>(mini, level.disparity[0](i,j));
-                }
-            }
-            std::cout << maxi << " " << mini << std::endl;
-            cv::waitKey(0);
-            */
-        }
-    }
+    run(pyramid, config);
 
     disparity.create(left.size());
     std::transform(
@@ -125,137 +95,310 @@ void LBPSM::run(const cv::Mat1b& left, const cv::Mat1b& right, const Config& con
         [&config] (int x) { return config.directions[0]*static_cast<float>(x); } );
 }
 
+void LBPSM::run(std::vector<Level>& pyramid, const Config& config)
+{
+    const size_t num_levels = pyramid.size();
+
+    std::cout << "Number of levels: " << num_levels << std::endl;
+
+    for(size_t i=0; i<num_levels; i++)
+    {
+        const size_t level_index = num_levels-1-i;
+
+        Level& level = pyramid[level_index];
+
+        std::cout << "Processing pyramid level " << level.level << "..." << std::endl;
+
+        init_disparity_and_occlusion(pyramid, level_index);
+
+        for(size_t j=0; j<config.num_fixed_point_iterations; j++)
+        {
+            std::cout << "    Fixed point iteration " << j << "..." << std::endl;
+
+            std::cout << "        Updating left disparity..." << std::endl;
+            update_disparity(level, config, 0);
+
+            std::cout << "        Updating right disparity..." << std::endl;
+            update_disparity(level, config, 1);
+
+            std::cout << "        Updating left occlusion..." << std::endl;
+            update_occlusion(level, config, 0);
+
+            std::cout << "        Updating right occlusion..." << std::endl;
+            update_occlusion(level, config, 1);
+        }
+
+        cv::imshow("disparity_left", level.disparity[0]*65535.0*20.0/256.0);
+        cv::imshow("gt_disparity_left", level.gt_disparity[0]*65535.0/256.0);
+        cv::imshow("disparity_right", level.disparity[1]*65535.0*20.0/256.0);
+        cv::imshow("gt_disparity_right", level.gt_disparity[1]*65535.0/256.0);
+        cv::imshow("occlusion_left", level.occlusion[0]*65535.0);
+        cv::imshow("gt_occlusion_left", level.gt_occlusion[0]*65535.0);
+        cv::imshow("occlusion_right", level.occlusion[1]*65535.0);
+        cv::imshow("gt_occlusion_right", level.gt_occlusion[1]*65535.0);
+        cv::waitKey(0);
+    }
+}
+
 float LBPSM::robust_norm_disparity(float x, const Config& config)
 {
-    return std::min( config.tau, config.lambda*std::fabs(x) );
+    return std::min( config.tau, config.lambda * std::fabs(x) );
 }
 
 float LBPSM::robust_norm_pixels(float x, const Config& config)
 {
-    return -std::log( (1.0-config.ed) * exp( -std::fabs(x) / config.sigmad ) + config.ed );
+    return -std::log( (1.0-config.ed) * std::exp( -std::fabs(x) / config.sigmad ) + config.ed );
 }
 
 void LBPSM::update_disparity(Level& level, const Config& config, int image)
 {
-    const int other_image = (image + 1) % 2;
+    const cv::Size image_size = level.image[image].size();
 
-    auto data_cost = [&level, &config, image, other_image] (const cv::Point& pt, int label) -> float
+    const int other_image = (image+1) % 2;
+
+    std::vector<cv::Point> neighbors;
+    cv::Mat1b connections;
+    cv::Mat1f data_cost;
+    cv::Mat1f discontinuity_cost;
+
+    // initialize neighbors array.
+
+    neighbors.resize(4);
+    neighbors[0] = cv::Point(-1, 0);
+    neighbors[1] = cv::Point(0, -1);
+    neighbors[2] = cv::Point(1, 0);
+    neighbors[3] = cv::Point(0, 1);
+
+    // initialize connections.
+
     {
-        const cv::Point other_pt = pt + cv::Point(config.directions[image]*label, 0);
+        const int dims[3] = { image_size.height, image_size.width, 4 };
+        connections.create(3, dims);
 
-        float ret = 0.0f;
-
-        if( (0 <= other_pt.x && other_pt.x < level.image[other_image].cols) == false || level.occlusion[other_image](other_pt) )
+        for(int i=0; i<image_size.height; i++)
         {
-            ret += config.betaw;
-        }
-
-        if(level.occlusion[image](pt) == 0)
-        {
-            const float value = level.image[image](pt);
-            float other_value = 0.0f;
-
-            if(0 <= other_pt.x && other_pt.x < level.image[other_image].cols)
+            for(int j=0; j<image_size.width; j++)
             {
-                other_value = level.image[other_image](other_pt);
+                const cv::Point this_point(j,i);
+
+                for(int l=0; l<4; l++)
+                {
+                    const cv::Point that_point = this_point + neighbors[l];
+
+                    if( 0 <= that_point.x && that_point.x < image_size.width && 0 <= that_point.y && that_point.y < image_size.height )
+                    {
+                        connections(cv::Vec3i(i,j,l)) = uint8_t( level.occlusion[image](this_point) == level.occlusion[image](that_point) );
+                    }
+                    else
+                    {
+                        connections(cv::Vec3i(i,j,l)) = 0;
+                    }
+                }
             }
-
-            ret += robust_norm_pixels( value - other_value, config );
         }
+    }
 
-        return ret;
-    };
+    // initialize data cost.
 
-    auto discontinuity_cost = [&level, &config] (const cv::Point& pt0, int label0, const cv::Point& pt1, int label1) -> float
     {
-        float ret = 0.0f;
+        const int dims[3] = { image_size.height, image_size.width, config.num_disparities };
+        data_cost.create(3, dims);
 
-        if( level.occlusion[0](pt0) == level.occlusion[0](pt1) )
+        for(int i=0; i<image_size.height; i++)
         {
-            ret += robust_norm_disparity( label1 - label0, config );
+            for(int j=0; j<image_size.width; j++)
+            {
+                const cv::Point this_point(j,i);
+
+                for(int k=0; k<config.num_disparities; k++)
+                {
+                    float cost = 0.0f;
+
+                    const cv::Point other_pt = this_point + cv::Point(config.directions[image]*k, 0);
+
+                    if( (0 <= other_pt.x && other_pt.x < level.image[other_image].cols) == false || level.occlusion[other_image](other_pt) )
+                    {
+                        cost += config.betaw;
+                    }
+
+                    if( level.occlusion[image](this_point) == 0 && 0 <= other_pt.x && other_pt.x < level.image[other_image].cols)
+                    {
+                        const float value = level.image[image](this_point);
+                        const float other_value = level.image[other_image](other_pt);
+                        cost += robust_norm_pixels( value - other_value, config );
+                    }
+
+                    //cost = std::fabs( float(level.image[image](this_point)) - 255.0f * k / 11.0f );
+
+                    data_cost( cv::Vec3i(i,j,k) ) = cost;
+                }
+            }
         }
+    }
 
-        return ret;
-    };
+    // initialize discontinuity cost.
 
-    std::cout << "            LoopyBeliefPropagation starts" << std::endl;
+    {
+        const int dims[2] = { config.num_disparities, config.num_disparities };
+        discontinuity_cost.create(2, dims);
 
-    LBP::execute(
+        for(int i=0; i<config.num_disparities; i++)
+        {
+            for(int j=0; j<config.num_disparities; j++)
+            {
+                discontinuity_cost( cv::Vec3i(i,j) ) = robust_norm_disparity( i - j, config );
+            }
+        }
+    }
+
+    // run loopy belief propagation.
+
+    LoopyBeliefPropagationSolver solver;
+    solver.run(
         config.num_disparities,
-        level.image[image].size(),
+        neighbors,
+        connections,
         data_cost,
         discontinuity_cost,
         config.num_belief_propagation_iterations,
         level.disparity[image]);
-
-    std::cout << "            LoopyBeliefPropagation ends" << std::endl;
 }
 
 void LBPSM::update_occlusion(Level& level, const Config& config, int image)
 {
-    const int other_image = (image + 1) % 2;
+    const cv::Size image_size = level.image[image].size();
 
-    cv::Mat1b W( level.image[image].size() );
+    const int other_image = (image+1) % 2;
 
-    std::fill(W.begin(), W.end(), 1);
+    std::vector<cv::Point> neighbors(4);
+    cv::Mat1b connections;
+    cv::Mat1f data_cost;
+    cv::Mat1f discontinuity_cost;
 
-    for(auto it=level.disparity[other_image].begin(); it!=level.disparity[other_image].end(); it++)
+    // initialize neighbors array.
+
+    neighbors[0] = cv::Point(-1, 0);
+    neighbors[1] = cv::Point(0, -1);
+    neighbors[2] = cv::Point(1, 0);
+    neighbors[3] = cv::Point(0, 1);
+
+    // initialize connections.
+
     {
-        const cv::Point pt = it.pos() + cv::Point(config.directions[other_image] * *it, 0);
+        const int dims[3] = { image_size.height, image_size.width, 4 };
+        connections.create(3, dims);
 
-        if( 0 <= pt.x && pt.x < W.cols && 0 <= pt.y && pt.y < W.rows )
+        for(int i=0; i<image_size.height; i++)
         {
-            W(pt) = 0;
+            for(int j=0; j<image_size.width; j++)
+            {
+                const cv::Point this_point(j,i);
+
+                for(int l=0; l<4; l++)
+                {
+                    const cv::Point that_point = this_point + neighbors[l];
+
+                    if( 0 <= that_point.x && that_point.x < image_size.width && 0 <= that_point.y && that_point.y < image_size.height )
+                    {
+                        connections(cv::Vec3i(i,j,l)) = 1;
+                    }
+                    else
+                    {
+                        connections(cv::Vec3i(i,j,l)) = 0;
+                    }
+                }
+            }
         }
     }
 
-    auto data_cost = [&config, &W, &level, image, other_image] (const cv::Point& pt, int label) -> float
+    // initialize data cost.
+
     {
-        double ret = config.betaw * std::fabs( label - W(pt) );
+        cv::Mat1b W(image_size);
 
-        if(label)
+        W = 1;
+
+        for(auto it=level.disparity[other_image].begin(); it!=level.disparity[other_image].end(); it++)
         {
-            ret += config.eta0;
-        }
-        else
-        {
-            const double value = level.image[image](pt);
-            double other_value = 0.0f;
+            const cv::Point pt = it.pos() + cv::Point(config.directions[other_image] * *it, 0);
 
-            const cv::Point other_pt = pt + cv::Point(config.directions[image]*level.disparity[image](pt), 0);
-
-            if(0 <= other_pt.x && other_pt.x < level.image[other_image].cols)
+            if( 0 <= pt.x && pt.x < W.cols && 0 <= pt.y && pt.y < W.rows )
             {
-                other_value = level.image[other_image](other_pt);
+                W(pt) = 0;
             }
-
-            ret += robust_norm_pixels( value - other_value, config );
         }
 
-        return ret;
-    };
+        const int dims[3] = { image_size.height, image_size.width, 2 };
+        data_cost.create(3, dims);
 
-    auto discontinuity_cost = [&config, &level, image] (const cv::Point& pt0, int label0, const cv::Point& pt1, int label1) -> float
-    {
-        double ret = 0.0f;
-
-        if(label0 != label1)
+        for(int i=0; i<image_size.height; i++)
         {
-            ret = static_cast<double>(config.beta0);
+            for(int j=0; j<image_size.width; j++)
+            {
+                const cv::Point this_point(j,i);
+
+                for(int k=0; k<2; k++)
+                {
+                    float cost = config.betaw * std::fabs( k - W(this_point) );
+
+                    if(k)
+                    {
+                        cost += config.eta0;
+                    }
+                    else
+                    {
+                        const float value = level.image[image](this_point);
+                        float other_value = 0.0f;
+
+                        const cv::Point other_pt = this_point + cv::Point(config.directions[image] * level.disparity[image](this_point), 0);
+
+                        if(0 <= other_pt.x && other_pt.x < level.image[other_image].cols)
+                        {
+                            other_value = level.image[other_image](other_pt);
+                        }
+
+                        cost += robust_norm_pixels( value - other_value, config );
+                    }
+
+                    data_cost( cv::Vec3i(i,j,k) ) = cost;
+                }
+            }
         }
+    }
 
-        return static_cast<double>(ret);
-    };
+    // initialize discontinuity cost.
 
-    std::cout << "            LoopyBeliefPropagation starts" << std::endl;
+    {
+        const int dims[2] = { 2, 2 };
+        discontinuity_cost.create(2, dims);
 
-    LBP::execute(
+        for(int i=0; i<2; i++)
+        {
+            for(int j=0; j<2; j++)
+            {
+
+                if(i != j)
+                {
+                    discontinuity_cost( cv::Vec3i(i,j) ) = static_cast<float>(config.beta0);
+                }
+                else
+                {
+                    discontinuity_cost( cv::Vec3i(i,j) ) = 0.0f;
+                }
+            }
+        }
+    }
+
+    // run loopy belief propagation.
+
+    LoopyBeliefPropagationSolver solver;
+    solver.run(
         2,
-        level.image[image].size(),
-        data_cost, discontinuity_cost,
+        neighbors,
+        connections,
+        data_cost,
+        discontinuity_cost,
         config.num_belief_propagation_iterations,
         level.occlusion[image]);
-
-    std::cout << "            LoopyBeliefPropagation ends" << std::endl;
 }
 

@@ -2,6 +2,7 @@
 add_executable(
     tmp
     LBP.h
+    LBP.cpp
     LBPSM.h
     LBPSM.cpp
     main.cpp)

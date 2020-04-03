@@ -6,38 +6,20 @@
 
 namespace LBPSM
 {
-
     struct Level
     {
         int level;
         cv::Mat1b image[2];
         cv::Mat1w disparity[2];
         cv::Mat1w occlusion[2];
+
+        cv::Mat1w gt_disparity[2];
+        cv::Mat1w gt_occlusion[2];
     };
 
     struct Config
     {
-        Config()
-        {
-            enable_multiscale = true;
-            level0_to_level1 = 0.75;
-            min_level_width = 30;
-
-            num_fixed_point_iterations = 3;
-            num_belief_propagation_iterations = 150;
-            num_disparities = 10;
-
-            directions[0] = -1;
-            directions[1] = 1;
-
-            lambda = 1.0; // todo try other values or use the method from the article.
-            tau = 2.0;
-            eta0 = 2.5;
-            sigmad = 4.0;
-            ed = 1.0e-2;
-            betaw = 4.0;
-            beta0 = 1.4;
-        }
+        Config();
 
         // options for multiscale.
         bool enable_multiscale;
@@ -78,12 +60,13 @@ namespace LBPSM
         const Config& config,
         std::vector<Level>& pyramid);
 
-    void prepare_level(
-        Level& level);
+    void init_disparity_and_occlusion(
+        std::vector<Level>& pyramid,
+        size_t index);
 
-    void prepare_level_from(
-        Level& level,
-        const Level& old_level);
+    void run(
+        std::vector<Level>& pyramid,
+        const Config& config);
 
     void run(
         const cv::Mat1b& left,
