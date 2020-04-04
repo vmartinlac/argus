@@ -9,6 +9,8 @@ namespace LBPSM
     struct Level
     {
         int level;
+        double level0_to_levelk;
+
         cv::Mat1b image[2];
         cv::Mat1w disparity[2];
         cv::Mat1w occlusion[2];

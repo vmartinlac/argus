@@ -8,16 +8,16 @@ LBPSM::Config::Config()
 {
     enable_multiscale = true;
     level0_to_level1 = 0.65;
-    min_level_width = 50;
+    min_level_width = 100;
 
-    num_fixed_point_iterations = 4;
-    num_belief_propagation_iterations = 500;
+    num_fixed_point_iterations = 1;
+    num_belief_propagation_iterations = 200;
     num_disparities = 15;
 
     directions[0] = -1;
     directions[1] = 1;
 
-    lambda = 0.5; // TODO try other values or use the method from the article.
+    lambda = 1.0; // TODO try other values or use the method from the article.
     tau = 2.0;
     eta0 = 2.5;
     sigmad = 4.0;
@@ -36,6 +36,7 @@ void LBPSM::build_pyramid(
 
     pyramid.emplace_back();
     pyramid.back().level = 0;
+    pyramid.back().level0_to_levelk = 1.0;
     pyramid.back().image[0] = left;
     pyramid.back().image[1] = right;
 
@@ -45,8 +46,10 @@ void LBPSM::build_pyramid(
 
         new_level.level = pyramid.back().level + 1;
 
-        cv::resize(pyramid.back().image[0], new_level.image[0], cv::Size(), config.level0_to_level1, config.level0_to_level1, cv::INTER_AREA);
-        cv::resize(pyramid.back().image[1], new_level.image[1], cv::Size(), config.level0_to_level1, config.level0_to_level1, cv::INTER_AREA);
+        new_level.level0_to_levelk = std::pow(config.level0_to_level1, new_level.level);
+
+        cv::resize(left, new_level.image[0], cv::Size(), new_level.level0_to_levelk, new_level.level0_to_levelk, cv::INTER_AREA);
+        cv::resize(right, new_level.image[1], cv::Size(), new_level.level0_to_levelk, new_level.level0_to_levelk, cv::INTER_AREA);
 
         pyramid.push_back(std::move(new_level));
     }
@@ -60,9 +63,19 @@ void LBPSM::init_disparity_and_occlusion(std::vector<Level>& pyramid, size_t lev
         Level& old_level = pyramid[level_index+1];
 
         cv::resize(old_level.disparity[0], level.disparity[0], level.image[0].size(), 0.0, 0.0, cv::INTER_NEAREST);
-        cv::resize(old_level.occlusion[0], level.occlusion[0], level.image[0].size(), 0.0, 0.0, cv::INTER_NEAREST);
         cv::resize(old_level.disparity[1], level.disparity[1], level.image[1].size(), 0.0, 0.0, cv::INTER_NEAREST);
+        cv::resize(old_level.occlusion[0], level.occlusion[0], level.image[0].size(), 0.0, 0.0, cv::INTER_NEAREST);
         cv::resize(old_level.occlusion[1], level.occlusion[1], level.image[1].size(), 0.0, 0.0, cv::INTER_NEAREST);
+
+        const double old_level_to_current_level = pyramid[level_index].level0_to_levelk / pyramid[level_index+1].level0_to_levelk; // should be equal to 1.0/config.level0_to_level1.
+
+        auto proc = [old_level_to_current_level] (uint16_t& x)
+        {
+            x = static_cast<uint16_t>(old_level_to_current_level * x);
+        };
+
+        std::for_each( level.disparity[0].begin(), level.disparity[0].end(), proc );
+        std::for_each( level.disparity[1].begin(), level.disparity[1].end(), proc );
     }
     else
     {
@@ -73,10 +86,10 @@ void LBPSM::init_disparity_and_occlusion(std::vector<Level>& pyramid, size_t lev
         level.disparity[1].create(level.image[1].size());
         level.occlusion[1].create(level.image[1].size());
 
-        std::fill(level.disparity[0].begin(), level.disparity[0].end(), 0);
-        std::fill(level.occlusion[0].begin(), level.occlusion[0].end(), 0);
-        std::fill(level.disparity[1].begin(), level.disparity[1].end(), 0);
-        std::fill(level.occlusion[1].begin(), level.occlusion[1].end(), 0);
+        level.disparity[0] = 0;
+        level.disparity[1] = 0;
+        level.occlusion[0] = 0;
+        level.occlusion[1] = 0;
     }
 }
 
@@ -115,28 +128,49 @@ void LBPSM::run(std::vector<Level>& pyramid, const Config& config)
         {
             std::cout << "    Fixed point iteration " << j << "..." << std::endl;
 
+        /*
+        level.disparity[0] = level.gt_disparity[0].clone();
+        level.disparity[1] = level.gt_disparity[1].clone();
+        */
+        level.occlusion[0] = level.gt_occlusion[0].clone();
+        level.occlusion[1] = level.gt_occlusion[1].clone();
+
             std::cout << "        Updating left disparity..." << std::endl;
             update_disparity(level, config, 0);
 
             std::cout << "        Updating right disparity..." << std::endl;
             update_disparity(level, config, 1);
 
-            std::cout << "        Updating left occlusion..." << std::endl;
-            update_occlusion(level, config, 0);
+            //std::cout << "        Updating left occlusion..." << std::endl;
+            //update_occlusion(level, config, 0);
 
-            std::cout << "        Updating right occlusion..." << std::endl;
-            update_occlusion(level, config, 1);
-        }
+            //std::cout << "        Updating right occlusion..." << std::endl;
+            //update_occlusion(level, config, 1);
 
         cv::imshow("disparity_left", level.disparity[0]*65535.0*20.0/256.0);
-        cv::imshow("gt_disparity_left", level.gt_disparity[0]*65535.0/256.0);
+        cv::imshow("gt_disparity_left", level.gt_disparity[0]*65535.0*20.0/256.0);
         cv::imshow("disparity_right", level.disparity[1]*65535.0*20.0/256.0);
-        cv::imshow("gt_disparity_right", level.gt_disparity[1]*65535.0/256.0);
+        cv::imshow("gt_disparity_right", level.gt_disparity[1]*65535.0*20.0/256.0);
         cv::imshow("occlusion_left", level.occlusion[0]*65535.0);
         cv::imshow("gt_occlusion_left", level.gt_occlusion[0]*65535.0);
         cv::imshow("occlusion_right", level.occlusion[1]*65535.0);
         cv::imshow("gt_occlusion_right", level.gt_occlusion[1]*65535.0);
         cv::waitKey(0);
+        //exit(0);
+
+        }
+
+        /*
+        cv::imshow("disparity_left", level.disparity[0]*65535.0*20.0/256.0);
+        cv::imshow("gt_disparity_left", level.gt_disparity[0]*65535.0*20.0/256.0);
+        cv::imshow("disparity_right", level.disparity[1]*65535.0*20.0/256.0);
+        cv::imshow("gt_disparity_right", level.gt_disparity[1]*65535.0*20.0/256.0);
+        cv::imshow("occlusion_left", level.occlusion[0]*65535.0);
+        cv::imshow("gt_occlusion_left", level.gt_occlusion[0]*65535.0);
+        cv::imshow("occlusion_right", level.occlusion[1]*65535.0);
+        cv::imshow("gt_occlusion_right", level.gt_occlusion[1]*65535.0);
+        cv::waitKey(0);
+        */
     }
 }
 
