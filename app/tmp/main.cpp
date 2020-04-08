@@ -4,11 +4,175 @@
 #include <opencv2/highgui.hpp>
 #include "LBPSM.h"
 #include "Tsukuba.h"
+#include "MarkovRandomField.h"
+#include "StochasticSearchSolver.h"
+#include "common.h"
+
+namespace LBPSM
+{
+    class DisparityRandomField : public MarkovRandomField
+    {
+    public:
+
+        DisparityRandomField(const Config& config, Level& level, int image) :
+            myConfig(config),
+            myLevel(level),
+            myImage(image),
+            myOtherImage( (image+1)%2 ),
+            mySize(level.image[image].cols - 2*config.margin, level.image[image].rows - 2*config.margin)
+        {
+            myFactorOffset[0] = mySize.width * mySize.height;
+            myFactorOffset[1] = myFactorOffset[0] + (mySize.width-1) * mySize.height;
+            myFactorOffset[2] = myFactorOffset[1] + mySize.width * (mySize.height-1);
+        }
+
+        int getNumVariables() const override
+        {
+            return mySize.width * mySize.height;
+        }
+
+        int getNumFactors() const override
+        {
+            return myFactorOffset[2];
+        }
+
+        void getVariables(int factor, std::vector<int>& variables) const override
+        {
+            if( factor < 0 || myFactorOffset[2] <= factor )
+            {
+                ABORT("Internal error!");
+            }
+
+            if(factor < myFactorOffset[0])
+            {
+                variables.assign({factor});
+            }
+            else if(factor < myFactorOffset[1])
+            {
+                const int x = (factor-myFactorOffset[0]) % (mySize.width-1);
+                const int y = (factor-myFactorOffset[0]) / (mySize.width-1);
+                const int v0 = y*mySize.width + x;
+                const int v1 = y*mySize.width + (x+1);
+                variables.assign({v0, v1});
+            }
+            else if(factor < myFactorOffset[2])
+            {
+                const int x = (factor-myFactorOffset[1]) % mySize.width;
+                const int y = (factor-myFactorOffset[1]) / mySize.width;
+                const int v0 = y*mySize.width + x;
+                const int v1 = (y+1)*mySize.width + x;
+                variables.assign({v0, v1});
+            }
+            else
+            {
+                ABORT("Internal error!");
+            }
+        }
+
+        void getFactors(int variable, std::vector<int>& factors) const override
+        {
+            const cv::Point pt(variable % mySize.width, variable / mySize.width);
+
+            if( pt.x >= mySize.width || pt.y >= mySize.height )
+            {
+                ABORT("Internal error!");
+            }
+
+            factors.assign({variable});
+
+            if(0 <= pt.x-1)
+            {
+                factors.push_back(myFactorOffset[0] + pt.y*(mySize.width-1) + (pt.x-1));
+            }
+
+            if(pt.x+1 < mySize.width)
+            {
+                factors.push_back(myFactorOffset[0] + pt.y*(mySize.width-1) + pt.x);
+            }
+
+            if(0 <= pt.y-1)
+            {
+                factors.push_back(myFactorOffset[1] + (pt.y-1)*mySize.width + pt.x);
+            }
+
+            if(pt.y+1 < mySize.height)
+            {
+                factors.push_back(myFactorOffset[1] + pt.y*mySize.width + pt.x);
+            }
+        }
+
+        int getNumLabels(int variable) const override
+        {
+            return myConfig.num_disparities;
+        }
+
+        double evaluateEnergy(int factor, std::vector<int>& node_labels) const override
+        {
+            double ret = 0.0;
+
+            if( factor < myFactorOffset[0] )
+            {
+                const int x = factor % mySize.width;
+                const int y = factor / mySize.width;
+                const int xo = x + myConfig.directions[myOtherImage]*node_labels[0];
+
+                if( xo < 0 || myLevel.image[myOtherImage].cols <= xo )
+                {
+                    ABORT("Internal error!");
+                }
+
+                const double gray = myLevel.image[myImage](y,x);
+                const double other_gray = myLevel.image[myOtherImage](y,xo);
+
+                ret = std::fabs(other_gray - gray);
+
+                const double alphax = (x - 0.5*mySize.width) / (0.5*mySize.width);
+                const double alphay = (y - 0.5*mySize.height) / (0.5*mySize.height);
+                //const double target = 1.0 - std::hypot( alphax, alphay );
+                double target = double(y) / double(mySize.height);
+                if( y > mySize.height/2)
+                {
+                    ret = std::fabs(node_labels[0] - 13.0);
+                }
+                else
+                {
+                    ret = std::fabs(node_labels[0] - 3.0);
+                }
+            }
+            else if( factor < myFactorOffset[1] )
+            {
+                const int x = (factor-myFactorOffset[0]) % (mySize.width-1);
+                const int y = (factor-myFactorOffset[0]) / (mySize.width-1);
+            }
+            else if( factor < myFactorOffset[2] )
+            {
+                const int x = (factor-myFactorOffset[1]) % mySize.width;
+                const int y = (factor-myFactorOffset[1]) / mySize.width;
+            }
+            else
+            {
+                ABORT("Internal error!");
+            }
+
+            return ret;
+        }
+
+    protected:
+
+        const Config& myConfig;
+        Level& myLevel;
+        const int myImage;
+        const int myOtherImage;
+        const cv::Size mySize;
+        int myFactorOffset[3];
+    };
+};
 
 int main(int num_args, char** args)
 {
-    Tsukuba data("/home/victor/datasets/new_tsukuba/NewTsukubaStereoDataset/");
-    const int index = 20;
+    //Tsukuba data("/home/victor/datasets/new_tsukuba/NewTsukubaStereoDataset/");
+    Tsukuba data("/home/victor/tsukuba/");
+    const int index = 999;
 
     LBPSM::Config config;
 
@@ -37,9 +201,7 @@ int main(int num_args, char** args)
                     x = 0;
                     break;
                 default:
-                    std::cout << x << std::endl;
-                    std::cout << "Bad tsukuba input data!" << std::endl;
-                    exit(1);
+                    ABORT("Bad tsukuba input data!");
                 }
             };
 
@@ -65,6 +227,25 @@ int main(int num_args, char** args)
         }
     }
 
+    LBPSM::DisparityRandomField field(config, pyramid.back(), 0);
+
+    StochasticSearchSolver solver;
+    std::vector<int> result;
+
+    solver.solve(&field, result, false);
+
+    cv::Mat1b nada(pyramid.back().image[0].size());
+    nada = 0;
+    for(int i=0; i<pyramid.back().image[0].rows - 2*config.margin; i++)
+    {
+        for(int j=0; j<pyramid.back().image[0].cols - 2*config.margin; j++)
+        {
+            nada(config.margin+i, config.margin+j) = result[ i*(pyramid.back().image[0].cols-2*config.margin) + j ] * 255.0 / double(config.num_disparities);
+        }
+    }
+    cv::imshow("", nada);
+    cv::waitKey(0);
+
 #if 0
     for(LBPSM::Level& l : pyramid)
     {
@@ -80,7 +261,7 @@ int main(int num_args, char** args)
     exit(0);
 #endif
 
-    LBPSM::run(pyramid, config);
+    //LBPSM::run(pyramid, config);
 
     return 0;
 }

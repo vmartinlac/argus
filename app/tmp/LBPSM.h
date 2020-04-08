@@ -32,6 +32,7 @@ namespace LBPSM
         int num_fixed_point_iterations;
         int num_belief_propagation_iterations;
         int num_disparities;
+        int margin;
 
         // directions
         int directions[2];

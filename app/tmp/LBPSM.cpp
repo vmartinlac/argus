@@ -2,7 +2,6 @@
 #include <opencv2/imgproc.hpp>
 #include <opencv2/highgui.hpp>
 #include "LBPSM.h"
-#include "LBP.h"
 
 LBPSM::Config::Config()
 {
@@ -13,6 +12,7 @@ LBPSM::Config::Config()
     num_fixed_point_iterations = 1;
     num_belief_propagation_iterations = 200;
     num_disparities = 15;
+    margin = 20;
 
     directions[0] = -1;
     directions[1] = 1;
@@ -135,11 +135,11 @@ void LBPSM::run(std::vector<Level>& pyramid, const Config& config)
         level.occlusion[0] = level.gt_occlusion[0].clone();
         level.occlusion[1] = level.gt_occlusion[1].clone();
 
-            std::cout << "        Updating left disparity..." << std::endl;
-            update_disparity(level, config, 0);
+            //std::cout << "        Updating left disparity..." << std::endl;
+            //update_disparity(level, config, 0);
 
-            std::cout << "        Updating right disparity..." << std::endl;
-            update_disparity(level, config, 1);
+            //std::cout << "        Updating right disparity..." << std::endl;
+            //update_disparity(level, config, 1);
 
             //std::cout << "        Updating left occlusion..." << std::endl;
             //update_occlusion(level, config, 0);
@@ -184,6 +184,7 @@ float LBPSM::robust_norm_pixels(float x, const Config& config)
     return -std::log( (1.0-config.ed) * std::exp( -std::fabs(x) / config.sigmad ) + config.ed );
 }
 
+/*
 void LBPSM::update_disparity(Level& level, const Config& config, int image)
 {
     const cv::Size image_size = level.image[image].size();
@@ -435,4 +436,5 @@ void LBPSM::update_occlusion(Level& level, const Config& config, int image)
         config.num_belief_propagation_iterations,
         level.occlusion[image]);
 }
+*/
 

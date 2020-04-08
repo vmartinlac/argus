@@ -28,6 +28,7 @@ cv::Mat1b Tsukuba::loadImage(int index, int left_or_right)
 
     if(image.data == nullptr)
     {
+        std::cout << path.toStdString() << std::endl;
         std::cout << "Could not read image!" << std::endl;
         exit(1);
     }
@@ -46,6 +47,7 @@ cv::Mat1w Tsukuba::loadGroundTruthOcclusion(int index, int left_or_right)
 
     if(image.data == nullptr)
     {
+        std::cout << path.toStdString() << std::endl;
         std::cout << "Could not read image!" << std::endl;
         exit(1);
     }
@@ -67,6 +69,7 @@ cv::Mat1w Tsukuba::loadGroundTruthDisparity(int index, int left_or_right)
 
     if(image.data == nullptr)
     {
+        std::cout << path.toStdString() << std::endl;
         std::cout << "Could not read image!" << std::endl;
         exit(1);
     }
