@@ -1,6 +1,4 @@
-add_subdirectory(argus)
-add_subdirectory(teststereomatcher)
-add_subdirectory(testlbp)
-
+add_subdirectory(demo_stereomatching)
+add_subdirectory(demo_mumfordshah)
 add_subdirectory(tmp)
 

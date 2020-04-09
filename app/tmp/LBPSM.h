@@ -11,12 +11,12 @@ namespace LBPSM
         int level;
         double level0_to_levelk;
 
-        cv::Mat1b image[2];
-        cv::Mat1w disparity[2];
-        cv::Mat1w occlusion[2];
+        cv::Mat3b image[2];
+        cv::Mat1s disparity[2];
+        cv::Mat1b occlusion[2];
 
-        cv::Mat1w gt_disparity[2];
-        cv::Mat1w gt_occlusion[2];
+        cv::Mat1s gt_disparity[2];
+        cv::Mat1b gt_occlusion[2];
     };
 
     struct Config
@@ -58,8 +58,8 @@ namespace LBPSM
         int image);
 
     void build_pyramid(
-        const cv::Mat1b& left,
-        const cv::Mat1b& right,
+        const cv::Mat3b& left,
+        const cv::Mat3b& right,
         const Config& config,
         std::vector<Level>& pyramid);
 

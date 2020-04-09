@@ -11,9 +11,9 @@ public:
     Tsukuba(const QString& path);
 
     int getNumImages();
-    cv::Mat1b loadImage(int index, int left_or_right);
-    cv::Mat1w loadGroundTruthOcclusion(int index, int left_or_right);
-    cv::Mat1w loadGroundTruthDisparity(int index, int left_or_right);
+    cv::Mat3b loadImage(int index, int left_or_right);
+    cv::Mat1b loadGroundTruthOcclusion(int index, int left_or_right);
+    cv::Mat1s loadGroundTruthDisparity(int index, int left_or_right);
 
 protected:
 

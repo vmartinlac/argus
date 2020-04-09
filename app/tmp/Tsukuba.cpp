@@ -17,14 +17,14 @@ int Tsukuba::getNumImages()
     return 1800;
 }
 
-cv::Mat1b Tsukuba::loadImage(int index, int left_or_right)
+cv::Mat3b Tsukuba::loadImage(int index, int left_or_right)
 {
     const char* left_pattern = "illumination/daylight/left/tsukuba_daylight_L_%1.png";
     const char* right_pattern = "illumination/daylight/right/tsukuba_daylight_R_%1.png";
 
     const QString path = myDir.absoluteFilePath( QString((left_or_right == 0) ? left_pattern : right_pattern).arg(index+1, 5, 10, QChar('0')) );
 
-    cv::Mat1b image = cv::imread( path.toUtf8().data(), cv::IMREAD_GRAYSCALE);
+    cv::Mat3b image = cv::imread( path.toUtf8().data(), cv::IMREAD_COLOR);
 
     if(image.data == nullptr)
     {
@@ -36,7 +36,7 @@ cv::Mat1b Tsukuba::loadImage(int index, int left_or_right)
     return image;
 }
 
-cv::Mat1w Tsukuba::loadGroundTruthOcclusion(int index, int left_or_right)
+cv::Mat1b Tsukuba::loadGroundTruthOcclusion(int index, int left_or_right)
 {
     const char* left_pattern = "groundtruth/occlusion_maps/left/tsukuba_occlusion_L_%1.png";
     const char* right_pattern = "groundtruth/occlusion_maps/right/tsukuba_occlusion_R_%1.png";
@@ -52,13 +52,17 @@ cv::Mat1w Tsukuba::loadGroundTruthOcclusion(int index, int left_or_right)
         exit(1);
     }
 
-    cv::Mat1w ret;
-    image.convertTo(ret, CV_16UC1);
+    cv::Mat1b ret(image.size());
+    std::transform(
+        image.begin(),
+        image.end(),
+        ret.begin(),
+        [] (uint8_t x) -> uint8_t { if(x == 0) return 0; else return 1; });
 
     return ret;
 }
 
-cv::Mat1w Tsukuba::loadGroundTruthDisparity(int index, int left_or_right)
+cv::Mat1s Tsukuba::loadGroundTruthDisparity(int index, int left_or_right)
 {
     const char* left_pattern = "groundtruth/disparity_maps/left/tsukuba_disparity_L_%1.png";
     const char* right_pattern = "groundtruth/disparity_maps/right/tsukuba_disparity_R_%1.png";
@@ -74,8 +78,15 @@ cv::Mat1w Tsukuba::loadGroundTruthDisparity(int index, int left_or_right)
         exit(1);
     }
 
-    cv::Mat1w ret;
-    image.convertTo(ret, CV_16UC1);
+    cv::Mat1s ret(image.size());
+
+    const int16_t dir = (left_or_right == 0) ? -1 : 1;
+
+    std::transform(
+        image.begin(),
+        image.end(),
+        ret.begin(),
+        [dir] (uint8_t x) -> int16_t { return dir*int16_t(x); });
 
     return ret;
 }

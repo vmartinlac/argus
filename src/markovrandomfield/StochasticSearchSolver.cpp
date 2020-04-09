@@ -4,10 +4,10 @@
 
 StochasticSearchSolver::StochasticSearchSolver()
 {
-    mySeed = 1234;
-    myNumIterations = 250;
-    myLambda = 0.98;
-    myInitialTemperature = 10.0;
+    mySeed = 12345;
+    myNumIterations = 1000;
+    myLambda = 0.995;
+    myInitialTemperature = 2.0;
 }
 
 void StochasticSearchSolver::setLambda(double value)
@@ -116,7 +116,7 @@ bool StochasticSearchSolver::solve(MarkovRandomField* field, std::vector<int>& s
                         }
                     }
 
-                    local_energies[f] = field->evaluateEnergy(f, local_labels);
+                    local_energies[f] = field->evaluateEnergy(local_factors[f], local_labels);
                     new_local_energy += local_energies[f];
                     old_local_energy += energies[local_factors[f]];
                 }
@@ -135,8 +135,7 @@ bool StochasticSearchSolver::solve(MarkovRandomField* field, std::vector<int>& s
             }
         }
 
-        std::cout << "Temperature = " << temperature << std::endl;
-        std::cout << "Energy = " << field->evaluateTotalEnergy(solution) << std::endl;
+        std::cout << "Iteration = " << iter << "\tTemperature = " << temperature << "\tEnergy = " << field->evaluateTotalEnergy(solution) << std::endl;
         temperature *= myLambda;
     }
 

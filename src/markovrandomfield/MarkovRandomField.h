@@ -17,7 +17,7 @@ public:
 
     virtual int getNumLabels(int variable) const = 0;
 
-    virtual double evaluateEnergy(int factor, std::vector<int>& node_labels) const = 0;
+    virtual double evaluateEnergy(int factor, const std::vector<int>& node_labels) const = 0;
 
     double evaluateTotalEnergy(const std::vector<int>& all_labels) const;
 };
