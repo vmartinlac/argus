@@ -1,11 +1,7 @@
-#include <opencv2/imgcodecs.hpp>
-#include <random>
 #include "Common.h"
-#include "MumfordShah.h"
-#include "MarkovRandomField.h"
-#include "StochasticSearchSolver.h"
+#include "GrayscaleMumfordShah.h"
 
-MumfordShah::MumfordShah(cv::Mat1b input_image, double beta, double lambda)
+GrayscaleMumfordShah::GrayscaleMumfordShah(cv::Mat1b input_image, double beta, double lambda)
 {
     myImage = input_image;
     myBeta = beta;
@@ -16,17 +12,17 @@ MumfordShah::MumfordShah(cv::Mat1b input_image, double beta, double lambda)
     myOffset[2] = myOffset[1] + mySize.width*(mySize.height-1);
 }
 
-int MumfordShah::getNumVariables() const
+int GrayscaleMumfordShah::getNumVariables() const
 {
     return myOffset[2];
 }
 
-int MumfordShah::getNumFactors() const
+int GrayscaleMumfordShah::getNumFactors() const
 {
     return myOffset[2];
 }
 
-void MumfordShah::getVariables(int factor, std::vector<int>& variables) const
+void GrayscaleMumfordShah::getVariables(int factor, std::vector<int>& variables) const
 {
     if(factor < myOffset[0])
     {
@@ -56,7 +52,7 @@ void MumfordShah::getVariables(int factor, std::vector<int>& variables) const
     }
 }
 
-void MumfordShah::getFactors(int variable, std::vector<int>& factors) const
+void GrayscaleMumfordShah::getFactors(int variable, std::vector<int>& factors) const
 {
     if(variable < myOffset[0])
     {
@@ -95,7 +91,7 @@ void MumfordShah::getFactors(int variable, std::vector<int>& factors) const
     }
 }
 
-int MumfordShah::getNumLabels(int variable) const
+int GrayscaleMumfordShah::getNumLabels(int variable) const
 {
     if(variable < myOffset[0])
     {
@@ -111,7 +107,7 @@ int MumfordShah::getNumLabels(int variable) const
     }
 }
 
-double MumfordShah::evaluateEnergy(int factor, const std::vector<int>& node_labels) const
+double GrayscaleMumfordShah::evaluateEnergy(int factor, const std::vector<int>& node_labels) const
 {
     double ret = 0.0;
 
@@ -153,7 +149,7 @@ double MumfordShah::evaluateEnergy(int factor, const std::vector<int>& node_labe
     return ret;
 }
 
-void MumfordShah::getInitialSolution(std::vector<int>& solution)
+void GrayscaleMumfordShah::getInitialSolution(std::vector<int>& solution)
 {
     solution.resize(myOffset[2]);
 
@@ -168,7 +164,7 @@ void MumfordShah::getInitialSolution(std::vector<int>& solution)
     std::fill(solution.begin() + myOffset[0], solution.begin() + myOffset[2], 0);
 }
 
-void MumfordShah::getImage(const std::vector<int>& solution, cv::Mat1b& image)
+void GrayscaleMumfordShah::getImage(const std::vector<int>& solution, cv::Mat1b& image)
 {
     image.create(mySize);
 
@@ -181,7 +177,7 @@ void MumfordShah::getImage(const std::vector<int>& solution, cv::Mat1b& image)
     }
 }
 
-void MumfordShah::getEdges(const std::vector<int>& solution, cv::Mat1b& edges)
+void GrayscaleMumfordShah::getEdges(const std::vector<int>& solution, cv::Mat1b& edges)
 {
     edges.create(mySize);
 

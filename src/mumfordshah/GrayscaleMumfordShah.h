@@ -3,11 +3,11 @@
 
 #include "MarkovRandomField.h"
 
-class MumfordShah : public MarkovRandomField
+class GrayscaleMumfordShah : public MarkovRandomField
 {
 public:
 
-    MumfordShah(cv::Mat1b input_image, double beta, double lambda);
+    GrayscaleMumfordShah(cv::Mat1b input_image, double beta, double lambda);
 
     int getNumVariables() const final;
 
