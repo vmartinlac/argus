@@ -95,6 +95,48 @@ void demo_grayscale(const std::string& path)
     cv::imwrite("C_edges.png", edges);
 }
 
+void demo_palm_color(const std::string& path)
+{
+    // load image
+
+    cv::Mat3b image = cv::imread(path, cv::IMREAD_COLOR);
+
+    // add noise
+
+    {
+        std::default_random_engine w;
+        w.seed(1357);
+
+        std::normal_distribution<double> X(0.0, 7.0);
+
+        for(int i=0; i<image.rows; i++)
+        {
+            for(int j=0; j<image.cols; j++)
+            {
+                for(int c=0; c<3; c++)
+                {
+                    image(i,j)[c] = cv::saturate_cast<uint8_t>(image(i,j)[c] + X(w));
+                }
+            }
+        }
+    }
+
+    // solve Mumford-Shah model.
+
+    cv::Mat3b result;
+    cv::Mat1b edges;
+
+    ProximalAlternatingMumfordShah ms(50.0, 15000.0);
+
+    ms.runColor(image, result, edges);
+
+    // save results.
+
+    cv::imwrite("A_input.png", image);
+    cv::imwrite("B_result.png", result);
+    cv::imwrite("C_edges.png", edges);
+}
+
 void demo_palm_grayscale(const std::string& path)
 {
     // load image
@@ -108,6 +150,7 @@ void demo_palm_grayscale(const std::string& path)
         w.seed(1357);
 
         std::normal_distribution<double> X(0.0, 4.0);
+
         for(int i=0; i<image.rows; i++)
         {
             for(int j=0; j<image.cols; j++)
@@ -139,7 +182,8 @@ int main(int num_args, char** args)
 
     //demo_color(path);
     //demo_grayscale(path);
-    demo_palm_grayscale(path);
+    //demo_palm_grayscale(path);
+    demo_palm_color(path);
 
     return 0;
 }

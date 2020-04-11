@@ -3,7 +3,7 @@
 
 ProximalAlternatingMumfordShah::ProximalAlternatingMumfordShah(double beta, double lambda, const cv::Vec3d& rgb_weights)
 {
-    myNumIterations = 1000;
+    myNumIterations = 1500;
     myBeta = beta;
     myLambda = lambda;
     myRgbWeights = rgb_weights;
@@ -16,7 +16,6 @@ void ProximalAlternatingMumfordShah::setNumIterations(int value)
 
 void ProximalAlternatingMumfordShah::runColor(const cv::Mat3b& input, cv::Mat3b& result, cv::Mat1b& edges)
 {
-    /*
     const double gamma = 1.1;
     const double delta = 1.1;
 
@@ -46,23 +45,29 @@ void ProximalAlternatingMumfordShah::runColor(const cv::Mat3b& input, cv::Mat3b&
         // compute cte_c.
 
         {
-            const double L = 4.0 * myBeta * std::sqrt(image_size.width*image_size.height);
+            const double L = 4.0 * myBeta * std::sqrt(image_size.width*image_size.height) * (myRgbWeights[0] + myRgbWeights[1] + myRgbWeights[2]);
             cte_c = gamma * L;
         }
 
         // update the image with gradient descent.
 
         {
-            derivative_wrt_image = 0.0f;
+            derivative_wrt_image = cv::Vec3f(0.0f, 0.0f, 0.0f);
 
             for(int i=0; i<image_size.height; i++)
             {
                 for(int j=0; j<image_size.width-1; j++)
                 {
                     const float one_minus_edge = 1.0f - X_vertical_edges(i,j);
-                    const float cte = 2.0 * myBeta * (X_image(i,j) - X_image(i,j+1)) * one_minus_edge * one_minus_edge;
-                    derivative_wrt_image(i,j) += cte;
-                    derivative_wrt_image(i,j+1) -= cte;
+                    const cv::Vec3f diff = X_image(i,j) - X_image(i,j+1);
+
+                    for(int channel=0; channel<3; channel++)
+                    {
+                        const float cte = 2.0f * myBeta * myRgbWeights[channel] * diff[channel] * one_minus_edge * one_minus_edge;
+
+                        derivative_wrt_image(i,j)[channel] += cte;
+                        derivative_wrt_image(i,j+1)[channel] -= cte;
+                    }
                 }
             }
 
@@ -71,9 +76,15 @@ void ProximalAlternatingMumfordShah::runColor(const cv::Mat3b& input, cv::Mat3b&
                 for(int j=0; j<image_size.width; j++)
                 {
                     const float one_minus_edge = 1.0f - X_horizontal_edges(i,j);
-                    const float cte = 2.0 * myBeta * (X_image(i,j) - X_image(i+1,j)) * one_minus_edge * one_minus_edge;
-                    derivative_wrt_image(i,j) += cte;
-                    derivative_wrt_image(i+1,j) -= cte;
+                    const cv::Vec3f diff = X_image(i,j) - X_image(i+1,j);
+
+                    for(int channel=0; channel<3; channel++)
+                    {
+                        const float cte = 2.0f * myBeta * myRgbWeights[channel] * diff[channel] * one_minus_edge * one_minus_edge;
+
+                        derivative_wrt_image(i,j)[channel] += cte;
+                        derivative_wrt_image(i+1,j)[channel] -= cte;
+                    }
                 }
             }
 
@@ -96,8 +107,9 @@ void ProximalAlternatingMumfordShah::runColor(const cv::Mat3b& input, cv::Mat3b&
             {
                 for(int j=0; j<image_size.width-1; j++)
                 {
-                    const double diff = X_image(i,j+1) - X_image(i,j);
-                    m = std::max<double>(m, diff*diff);
+                    const cv::Vec3f diff = X_image(i,j+1) - X_image(i,j);
+                    const double value = myRgbWeights[0]*diff[0]*diff[0] + myRgbWeights[1]*diff[1]*diff[1] + myRgbWeights[2]*diff[2]*diff[2];
+                    m = std::max<double>(m, value);
                 }
             }
 
@@ -105,8 +117,9 @@ void ProximalAlternatingMumfordShah::runColor(const cv::Mat3b& input, cv::Mat3b&
             {
                 for(int j=0; j<image_size.width; j++)
                 {
-                    const double diff = X_image(i+1,j) - X_image(i,j);
-                    m = std::max<double>(m, diff*diff);
+                    const cv::Vec3f diff = X_image(i+1,j) - X_image(i,j);
+                    const double value = myRgbWeights[0]*diff[0]*diff[0] + myRgbWeights[1]*diff[1]*diff[1] + myRgbWeights[2]*diff[2]*diff[2];
+                    m = std::max<double>(m, value);
                 }
             }
 
@@ -122,8 +135,9 @@ void ProximalAlternatingMumfordShah::runColor(const cv::Mat3b& input, cv::Mat3b&
                 for(int j=0; j<image_size.width-1; j++)
                 {
                     const float one_minus_edge = 1.0f - X_vertical_edges(i,j);
-                    const float diff = X_image(i,j) - X_image(i,j+1);
-                    derivative_wrt_vertical_edges(i,j) = -2.0 * myBeta * diff * diff * one_minus_edge;
+                    const cv::Vec3f diff = X_image(i,j) - X_image(i,j+1);
+                    const float diff_squared_norm = myRgbWeights[0]*diff[0]*diff[0] + myRgbWeights[1]*diff[1]*diff[1] + myRgbWeights[2]*diff[2]*diff[2];
+                    derivative_wrt_vertical_edges(i,j) = -2.0f * myBeta * diff_squared_norm * one_minus_edge;
                 }
             }
 
@@ -132,8 +146,9 @@ void ProximalAlternatingMumfordShah::runColor(const cv::Mat3b& input, cv::Mat3b&
                 for(int j=0; j<image_size.width; j++)
                 {
                     const float one_minus_edge = 1.0f - X_horizontal_edges(i,j);
-                    const float diff = X_image(i,j) - X_image(i+1,j);
-                    derivative_wrt_horizontal_edges(i,j) = -2.0 * myBeta * diff * diff * one_minus_edge;
+                    const cv::Vec3f diff = X_image(i,j) - X_image(i+1,j);
+                    const float diff_squared_norm = myRgbWeights[0]*diff[0]*diff[0] + myRgbWeights[1]*diff[1]*diff[1] + myRgbWeights[2]*diff[2]*diff[2];
+                    derivative_wrt_horizontal_edges(i,j) = -2.0f * myBeta * diff_squared_norm * one_minus_edge;
                 }
             }
 
@@ -186,7 +201,7 @@ void ProximalAlternatingMumfordShah::runColor(const cv::Mat3b& input, cv::Mat3b&
         }
     }
 
-    X_image.convertTo(result, CV_8UC1);
+    X_image.convertTo(result, CV_8UC3);
 
     edges.create(image_size);
     edges = 0;
@@ -208,7 +223,6 @@ void ProximalAlternatingMumfordShah::runColor(const cv::Mat3b& input, cv::Mat3b&
             edges(i,j) = std::max<uint8_t>( edges(i,j), value );
         }
     }
-    */
 }
 
 void ProximalAlternatingMumfordShah::runGrayscale(const cv::Mat1b& input, cv::Mat1b& result, cv::Mat1b& edges)
@@ -256,7 +270,7 @@ void ProximalAlternatingMumfordShah::runGrayscale(const cv::Mat1b& input, cv::Ma
                 for(int j=0; j<image_size.width-1; j++)
                 {
                     const float one_minus_edge = 1.0f - X_vertical_edges(i,j);
-                    const float cte = 2.0 * myBeta * (X_image(i,j) - X_image(i,j+1)) * one_minus_edge * one_minus_edge;
+                    const float cte = 2.0f * myBeta * (X_image(i,j) - X_image(i,j+1)) * one_minus_edge * one_minus_edge;
                     derivative_wrt_image(i,j) += cte;
                     derivative_wrt_image(i,j+1) -= cte;
                 }
@@ -267,7 +281,7 @@ void ProximalAlternatingMumfordShah::runGrayscale(const cv::Mat1b& input, cv::Ma
                 for(int j=0; j<image_size.width; j++)
                 {
                     const float one_minus_edge = 1.0f - X_horizontal_edges(i,j);
-                    const float cte = 2.0 * myBeta * (X_image(i,j) - X_image(i+1,j)) * one_minus_edge * one_minus_edge;
+                    const float cte = 2.0f * myBeta * (X_image(i,j) - X_image(i+1,j)) * one_minus_edge * one_minus_edge;
                     derivative_wrt_image(i,j) += cte;
                     derivative_wrt_image(i+1,j) -= cte;
                 }
@@ -319,7 +333,7 @@ void ProximalAlternatingMumfordShah::runGrayscale(const cv::Mat1b& input, cv::Ma
                 {
                     const float one_minus_edge = 1.0f - X_vertical_edges(i,j);
                     const float diff = X_image(i,j) - X_image(i,j+1);
-                    derivative_wrt_vertical_edges(i,j) = -2.0 * myBeta * diff * diff * one_minus_edge;
+                    derivative_wrt_vertical_edges(i,j) = -2.0f * myBeta * diff * diff * one_minus_edge;
                 }
             }
 
@@ -329,7 +343,7 @@ void ProximalAlternatingMumfordShah::runGrayscale(const cv::Mat1b& input, cv::Ma
                 {
                     const float one_minus_edge = 1.0f - X_horizontal_edges(i,j);
                     const float diff = X_image(i,j) - X_image(i+1,j);
-                    derivative_wrt_horizontal_edges(i,j) = -2.0 * myBeta * diff * diff * one_minus_edge;
+                    derivative_wrt_horizontal_edges(i,j) = -2.0f * myBeta * diff * diff * one_minus_edge;
                 }
             }
 
