@@ -1,6 +1,6 @@
-#include "MarkovRandomField.h"
+#include "FactorGraph.h"
 
-double MarkovRandomField::evaluateTotalEnergy(const std::vector<int>& all_labels) const
+double FactorGraph::evaluateTotalEnergy(const std::vector<int>& all_labels) const
 {
     std::vector<int> local_variables;
     std::vector<int> local_labels;

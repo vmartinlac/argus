@@ -1,7 +1,7 @@
 
 #pragma once
 
-#include "MarkovRandomField.h"
+#include "FactorGraph.h"
 #include "Solver.h"
 
 class StochasticSearchSolver : public Solver
@@ -15,7 +15,7 @@ public:
     void setSeed(int value);
     void setNumIterations(int value);
 
-    bool solve(MarkovRandomField* field, std::vector<int>& solution, bool use_initial_solution) override;
+    bool solve(FactorGraph* field, std::vector<int>& solution, bool use_initial_solution) override;
 
 protected:
 

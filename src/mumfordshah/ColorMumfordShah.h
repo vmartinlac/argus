@@ -1,9 +1,9 @@
 
 #pragma once
 
-#include "MarkovRandomField.h"
+#include "FactorGraph.h"
 
-class ColorMumfordShah : public MarkovRandomField
+class ColorMumfordShah : public FactorGraph
 {
 public:
 

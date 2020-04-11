@@ -30,7 +30,7 @@ void StochasticSearchSolver::setNumIterations(int value)
     myNumIterations = value;
 }
 
-bool StochasticSearchSolver::solve(MarkovRandomField* field, std::vector<int>& solution, bool use_initial_solution)
+bool StochasticSearchSolver::solve(FactorGraph* field, std::vector<int>& solution, bool use_initial_solution)
 {
     std::default_random_engine W;
     W.seed(mySeed);

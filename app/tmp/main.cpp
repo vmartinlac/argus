@@ -4,13 +4,13 @@
 #include <opencv2/highgui.hpp>
 #include "LBPSM.h"
 #include "Tsukuba.h"
-#include "MarkovRandomField.h"
+#include "FactorGraph.h"
 #include "StochasticSearchSolver.h"
 #include "Common.h"
 
 namespace LBPSM
 {
-    class DisparityOcclusionBase : public MarkovRandomField
+    class DisparityOcclusionBase : public FactorGraph
     {
     public:
 
@@ -121,11 +121,11 @@ namespace LBPSM
         int myFactorOffset[3];
     };
 
-    class OcclusionRandomField : public DisparityOcclusionBase
+    class OcclusionField : public DisparityOcclusionBase
     {
     public:
 
-        OcclusionRandomField(const Config& config, Level& level, int image) : DisparityOcclusionBase(config, level, image)
+        OcclusionField(const Config& config, Level& level, int image) : DisparityOcclusionBase(config, level, image)
         {
             myUntouched.create(mySize);
 
@@ -216,11 +216,11 @@ namespace LBPSM
         cv::Mat1b myUntouched;
     };
 
-    class DisparityRandomField : public DisparityOcclusionBase
+    class DisparityField : public DisparityOcclusionBase
     {
     public:
 
-        DisparityRandomField(const Config& config, Level& level, int image) : DisparityOcclusionBase(config, level, image)
+        DisparityField(const Config& config, Level& level, int image) : DisparityOcclusionBase(config, level, image)
         {
         }
 
@@ -372,7 +372,7 @@ int main(int num_args, char** args)
     pyramid.back().disparity[0] = pyramid.back().gt_disparity[0].clone();
     pyramid.back().disparity[1] = pyramid.back().gt_disparity[1].clone();
 
-    LBPSM::DisparityRandomField field(config, pyramid.back(), 0);
+    LBPSM::DisparityField field(config, pyramid.back(), 0);
     result.resize( (pyramid.back().image[0].rows - 2*config.margin) * (pyramid.back().image[0].cols - 2*config.margin) );
     std::fill(result.begin(), result.end(), 0);
     solver.solve(&field, result, true);

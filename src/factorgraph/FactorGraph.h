@@ -3,7 +3,7 @@
 
 #include <opencv2/core.hpp>
 
-class MarkovRandomField
+class FactorGraph
 {
 public:
 
