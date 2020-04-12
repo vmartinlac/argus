@@ -20,5 +20,7 @@ public:
     virtual double evaluateEnergy(int factor, const std::vector<int>& node_labels) const = 0;
 
     double evaluateTotalEnergy(const std::vector<int>& all_labels) const;
+
+    std::string compileForGraphviz() const;
 };
 

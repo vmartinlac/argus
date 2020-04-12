@@ -2,6 +2,10 @@
 add_library(
     argus_factorgraph
     STATIC
+    ExhaustiveSolver.cpp
+    ExhaustiveSolver.h
+    BeliefPropagationSolver.cpp
+    BeliefPropagationSolver.h
     LoopyBeliefPropagationSolver.cpp
     LoopyBeliefPropagationSolver.h
     FactorGraph.cpp

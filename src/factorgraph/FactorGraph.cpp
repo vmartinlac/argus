@@ -1,3 +1,4 @@
+#include <iostream>
 #include "FactorGraph.h"
 
 double FactorGraph::evaluateTotalEnergy(const std::vector<int>& all_labels) const
@@ -23,5 +24,43 @@ double FactorGraph::evaluateTotalEnergy(const std::vector<int>& all_labels) cons
     }
 
     return ret;
+}
+
+std::string FactorGraph::compileForGraphviz() const
+{
+    const int num_variables = getNumVariables();
+    const int num_factors = getNumFactors();
+
+    const char* indent = "    ";
+
+    std::vector<int> local_factors;
+
+    std::stringstream ss;
+
+    ss << "graph factor_graph {" << std::endl;
+
+    for(int i=0; i<num_variables; i++)
+    {
+        ss << indent << "v" << i << " [shape=circle]" << std::endl;
+    }
+
+    for(int i=0; i<num_factors; i++)
+    {
+        ss << indent << "f" << i << " [shape=box]" << std::endl;
+    }
+
+    for(int i=0; i<num_variables; i++)
+    {
+        getFactors(i, local_factors);
+
+        for(int j : local_factors)
+        {
+            ss << indent << "v" << i << " -- f" << j << std::endl;
+        }
+    }
+
+    ss << "}" << std::endl;
+
+    return ss.str();
 }
 

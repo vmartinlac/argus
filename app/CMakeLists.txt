@@ -1,4 +1,5 @@
 add_subdirectory(demo_stereomatching)
 add_subdirectory(demo_mumfordshah)
+add_subdirectory(demo_factorgraph)
 add_subdirectory(tmp)
 

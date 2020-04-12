@@ -21,8 +21,8 @@ bool LoopyBeliefPropagationSolver::solve(FactorGraph* graph, std::vector<int>& s
     const int num_factors = graph->getNumFactors();
 
     std::vector<int> message_offset(num_variables);
-    std::vector<float> factor_messages;
-    std::vector<float> variable_messages;
+    std::vector<float> factor_to_variable;
+    std::vector<float> variable_to_factor;
 
     {
         int offset = 0;
@@ -35,8 +35,8 @@ bool LoopyBeliefPropagationSolver::solve(FactorGraph* graph, std::vector<int>& s
             if(offset > 2000000) ABORT("Graph size exceeds limits! Lets avoid arithmetic overflow!");
         }
 
-        factor_messages.assign(offset, 0.0f);
-        variable_messages.assign(offset, 0.0f);
+        factor_to_variable.assign(offset, 0.0f);
+        variable_to_factor.assign(offset, 0.0f);
     }
 
     for(int iter=0; iter<myNumIterations; iter++)
