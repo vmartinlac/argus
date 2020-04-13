@@ -1,7 +1,4 @@
 #include <iostream>
-#include <tbb/parallel_for.h>
-#include <tbb/parallel_for_each.h>
-#include <tbb/blocked_range2d.h>
 #include "LoopyBeliefPropagationSolver.h"
 #include "Common.h"
 
@@ -17,34 +14,6 @@ void LoopyBeliefPropagationSolver::setNumIterations(int value)
 
 bool LoopyBeliefPropagationSolver::solve(FactorGraph* graph, std::vector<int>& solution, bool use_initial_solution)
 {
-    const int num_variables = graph->getNumVariables();
-    const int num_factors = graph->getNumFactors();
-
-    std::vector<int> message_offset(num_variables);
-    std::vector<float> factor_to_variable;
-    std::vector<float> variable_to_factor;
-
-    {
-        int offset = 0;
-
-        for(int i=0; i<num_variables; i++)
-        {
-            message_offset[i] = offset;
-            offset += graph->getNumLabels(i);
-
-            if(offset > 2000000) ABORT("Graph size exceeds limits! Lets avoid arithmetic overflow!");
-        }
-
-        factor_to_variable.assign(offset, 0.0f);
-        variable_to_factor.assign(offset, 0.0f);
-    }
-
-    for(int iter=0; iter<myNumIterations; iter++)
-    {
-        for(int i=0; i<num_factors; i++)
-        {
-            ;
-        }
-    }
+    ABORT("Not implemented!");
 }
 

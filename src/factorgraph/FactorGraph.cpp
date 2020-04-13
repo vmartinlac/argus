@@ -41,12 +41,12 @@ std::string FactorGraph::compileForGraphviz() const
 
     for(int i=0; i<num_variables; i++)
     {
-        ss << indent << "v" << i << " [shape=circle]" << std::endl;
+        ss << indent << "v" << i << " [shape=circle, label=\"" << getNameOfVariable(i) << "\"]" << std::endl;
     }
 
     for(int i=0; i<num_factors; i++)
     {
-        ss << indent << "f" << i << " [shape=box]" << std::endl;
+        ss << indent << "f" << i << " [shape=box, label=\"" << getNameOfFactor(i) << "\"]" << std::endl;
     }
 
     for(int i=0; i<num_variables; i++)
@@ -62,5 +62,15 @@ std::string FactorGraph::compileForGraphviz() const
     ss << "}" << std::endl;
 
     return ss.str();
+}
+
+std::string FactorGraph::getNameOfVariable(int variable) const
+{
+    return std::string("v") + std::to_string(variable);
+}
+
+std::string FactorGraph::getNameOfFactor(int factor) const
+{
+    return std::string("f") + std::to_string(factor);
 }
 

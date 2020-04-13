@@ -11,7 +11,5 @@ public:
     BeliefPropagationSolver();
 
     bool solve(FactorGraph* graph, std::vector<int>& solution, bool use_initial_solution) override;
-
-protected:
 };
 
