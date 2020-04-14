@@ -129,6 +129,7 @@ bool BeliefPropagationSolver::solve(FactorGraph* graph, std::vector<int>& soluti
         std::stack<int> stack;
         std::vector<int> candidate;
 
+        // TODO: do we really need two traversals? Isn't one enough?
         int iteration_offset[4];
         iteration_offset[0] = num_variables;
         iteration_offset[1] = iteration_offset[0] + num_factors;
