@@ -82,6 +82,8 @@ bool StochasticSearchSolver::solve(FactorGraph* field, std::vector<int>& solutio
         energies[i] = field->evaluateEnergy(i, local_labels);
     }
 
+    double total_energy = field->evaluateTotalEnergy(solution);
+
     // stochastic optimization.
 
     for(int iter=0; iter<myNumIterations; iter++)
@@ -131,11 +133,13 @@ bool StochasticSearchSolver::solve(FactorGraph* field, std::vector<int>& solutio
                     {
                         energies[ local_factors[f] ] = local_energies[f];
                     }
+
+                    total_energy += new_local_energy - old_local_energy;
                 }
             }
         }
 
-        std::cout << "Iteration = " << iter << "\tTemperature = " << temperature << "\tEnergy = " << field->evaluateTotalEnergy(solution) << std::endl;
+        std::cout << "Iteration = " << iter << "\tTemperature = " << temperature << "\tEnergy = " << total_energy << std::endl;
         temperature *= myLambda;
     }
 
